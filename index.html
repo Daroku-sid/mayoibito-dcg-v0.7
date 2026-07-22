@@ -25,20 +25,52 @@
   <div class="v7-shell-wrap">
     <div class="v7-shell">
 
-      <!-- ホーム相当のプレースホルダ（中身は Stage 2 で作ります）
-           Stage 1 では、器が正しく立ち上がったことが分かる最小の
-           仮表示だけを置いています。メインハブの本UIではありません。 -->
-      <div id="v7-home-placeholder" class="v7-layer">
-        <div class="v7-boot">
-          <div class="v7-boot__mark">マヨイビト</div>
-          <div class="v7-boot__sub">v0.7 ・ Stage 1</div>
-          <div class="v7-boot__id">プレイヤーID：<span id="v7-boot-id">—</span></div>
-          <p class="v7-boot__note">
-            これは起動確認用の仮表示です。<br>
-            メインハブ（ホーム・カード・対戦・ショップ・その他）は<br>
-            Stage 2 以降で作ります。
-          </p>
+      <!-- ================= メインハブ（第6部）================= -->
+      <div id="v7-home-placeholder" class="v7-layer v7-hub">
+
+        <!-- (1) 共通一枚絵レイヤー（第5部）。2枚をクロスフェードで重ねる -->
+        <div class="v7-art">
+          <div class="v7-art__img" id="v7-art-a"></div>
+          <div class="v7-art__img" id="v7-art-b"></div>
+          <!-- (2) 暗色グラデーション（上下を少し沈めて文字を読みやすく） -->
+          <div class="v7-art__grad"></div>
+          <!-- 一枚絵の中央だけタップで切り替え（第5部 5.5）。透明ボタン -->
+          <button type="button" class="v7-art__tap" id="v7-art-tap" aria-label="一枚絵を切り替える"></button>
         </div>
+
+        <!-- (3) 上部プレイヤー情報・通貨（第6部 6.2/6.3） -->
+        <div class="v7-top v7-safe-top">
+          <button type="button" class="v7-profile" id="v7-profile">
+            <span class="v7-profile__icon" aria-hidden="true"></span>
+            <span class="v7-profile__text">
+              <span class="v7-profile__name" id="v7-profile-name">プレイヤー</span>
+              <span class="v7-profile__title" id="v7-profile-title">はじめての一歩</span>
+            </span>
+          </button>
+          <div class="v7-currency">
+            <button type="button" class="v7-cur" id="v7-cur-soft">
+              <span class="v7-cur__icon v7-cur__icon--soft" aria-hidden="true"></span>
+              <span class="v7-cur__val">0</span>
+            </button>
+            <button type="button" class="v7-cur" id="v7-cur-premium">
+              <span class="v7-cur__icon v7-cur__icon--premium" aria-hidden="true"></span>
+              <span class="v7-cur__val">0</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- (4) タブ固有パネル領域（第6部 6.4）。中身はタブごとに差し替え -->
+        <div class="v7-panels">
+          <div class="v7-panel-slider" id="v7-panel-slider">
+            <!-- 各タブのパネルはJSが描き込む -->
+          </div>
+        </div>
+
+        <!-- (5) メインナビゲーション（第6部 6.5） -->
+        <nav class="v7-nav v7-safe-bottom" id="v7-nav" aria-label="メインナビゲーション">
+          <!-- タブボタンはJSが描き込む（仮SVG＋文字） -->
+        </nav>
+
       </div>
 
       <!-- 個別画面の暗転（第15部 15.2） -->
@@ -1203,6 +1235,12 @@
 
 <!-- v0.7 アプリシェル（Stage 1）。既存スクリプトの後に読み込みます。 -->
 <script src="js/v07-save.js?v=0.7.0"></script>
+<!-- v0.7 メインハブ（Stage 2）。shell から参照するので shell より前に。 -->
+<script src="js/v07-hub-data.js?v=0.7.0"></script>
+<script src="js/v07-art.js?v=0.7.0"></script>
+<script src="js/v07-home.js?v=0.7.0"></script>
+<script src="js/v07-panels.js?v=0.7.0"></script>
+<script src="js/v07-hub.js?v=0.7.0"></script>
 <script src="js/v07-shell.js?v=0.7.0"></script>
 <script>
   // 既存の init（preview.js）も DOMContentLoaded で走りますが、

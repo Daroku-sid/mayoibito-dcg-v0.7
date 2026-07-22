@@ -366,52 +366,325 @@
 }
 
 /* =====================================================================
-   起動確認用プレースホルダ（Stage 1 のみ）
+   メインハブ（Stage 2・第5〜11部）
    ---------------------------------------------------------------------
-   器が立ち上がったことが分かる最小の仮表示です。
-   Stage 2 でメインハブ本体に置き換えます。
+   一枚絵を全面に敷き、その上に 上部情報／通貨／タブ固有パネル／ナビ を
+   重ねます（第6部 6.1）。パネルは濃紺ベタ（作者確定：半透明にしない）。
+   画像は未支給のため、一枚絵スロットは濃紺フォールバックで成立します。
    ===================================================================== */
-.v7-boot {
+
+.v7-hub { position: absolute; inset: 0; overflow: hidden; }
+
+/* -------- (1) 共通一枚絵レイヤー（第5部） -------- */
+.v7-art { position: absolute; inset: 0; z-index: 1; background: var(--v7-color-bg); }
+.v7-art__img {
   position: absolute;
   inset: 0;
+  background-color: var(--v7-color-bg);   /* 画像未読込でも濃紺（5.9） */
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.5s ease;          /* 0.5秒クロスフェード（5.4） */
+}
+.v7-art__img.is-front { opacity: 1; }
+/* 上下を少し沈めて、重なる文字を読みやすく（6.1 (2)） */
+.v7-art__grad {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgba(4,6,12,0.55) 0%, rgba(4,6,12,0) 22%),
+    linear-gradient(to top, rgba(4,6,12,0.72) 0%, rgba(4,6,12,0) 34%);
+}
+/* 中央だけタップ可能な透明ボタン（5.5）。上部と下部には重ねない。 */
+.v7-art__tap {
+  position: absolute;
+  left: 0; right: 0;
+  top: 92px;                            /* 上部情報の下から */
+  bottom: calc(36% + 70px + env(safe-area-inset-bottom, 0px));  /* パネル・ナビに重ねない */
+  z-index: 3;
+  border: 0; padding: 0; margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+@media (max-height: 699px) {
+  .v7-art__tap { bottom: calc(40% + 60px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* -------- (3) 上部プレイヤー情報・通貨（第6部 6.2/6.3） -------- */
+.v7-top {
+  position: absolute;
+  z-index: 20;
+  top: 0; left: 0; right: 0;
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px 0;
+  pointer-events: none;      /* 枠自体はタップ透過、子だけ受ける */
+}
+.v7-top > * { pointer-events: auto; }
+
+.v7-profile {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 0 28px;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 16px 8px 34px;   /* 左はアイコンのはみ出しぶん */
+  position: relative;
+  border-radius: var(--v7-radius-large);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text);
+  cursor: pointer;
+  max-width: 62%;
+}
+.v7-profile__icon {
+  position: absolute;
+  left: -6px; top: 50%; transform: translateY(-50%);
+  width: 42px; height: 42px; border-radius: 50%;
+  background: #2a3350;
+  border: 1px solid var(--v7-color-border-gold);
+}
+.v7-profile__text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; overflow: hidden; }
+.v7-profile__name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+.v7-profile__title { font-size: 11px; color: var(--v7-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+
+.v7-currency { display: flex; flex-direction: column; gap: 6px; }
+.v7-cur {
+  display: flex; align-items: center; gap: 6px;
+  min-height: 30px; padding: 4px 12px 4px 8px;
+  border-radius: var(--v7-radius-medium);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text); font-size: 13px; cursor: pointer;
+  justify-content: flex-end; min-width: 84px;
+}
+.v7-cur__icon { width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto; }
+.v7-cur__icon--soft { background: #d7b25a; }
+.v7-cur__icon--premium { background: #7fb0e6; }
+.v7-cur__val { font-variant-numeric: tabular-nums; }
+
+/* -------- (4) タブ固有パネル領域（第6部 6.4） --------
+   下端はメインナビ（セーフエリア込みの実高）の少し上に固定する。
+   ナビ高が端末のホームバー分だけ伸びても重ならないよう calc で確保。 */
+.v7-panels {
+  position: absolute;
+  z-index: 15;
+  left: 0; right: 0;
+  bottom: calc(62px + env(safe-area-inset-bottom, 0px) + 8px);  /* ナビ上 */
+  height: 36%;
+  min-height: 200px;
+  max-height: 340px;
+  padding: 0 12px;
+  overflow: hidden;
+}
+.v7-panel-slider { position: relative; width: 100%; height: 100%; }
+.v7-tabpanel { position: absolute; inset: 0; }
+
+/* スライド（0.3秒・方向つき：6.4） */
+.v7-slide-in-right { transform: translateX(100%); }
+.v7-slide-in-left  { transform: translateX(-100%); }
+.v7-slide-out-left  { transform: translateX(-100%); transition: transform 0.3s ease; }
+.v7-slide-out-right { transform: translateX(100%);  transition: transform 0.3s ease; }
+.v7-slide-center    { transform: translateX(0);     transition: transform 0.3s ease; }
+
+/* -------- (5) メインナビ（第6部 6.5） -------- */
+.v7-nav {
+  position: absolute;
+  z-index: 25;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: rgba(6, 9, 18, 0.94);
+  border-top: 1px solid rgba(154, 133, 89, 0.35);
+}
+.v7-nav__item {
+  flex: 1 1 0;
+  min-height: 58px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--v7-color-text-muted);
+  position: relative;
+}
+/* タブの間の細い仕切り（ラフの金の縦線に相当） */
+.v7-nav__item + .v7-nav__item::before {
+  content: ''; position: absolute; left: 0; top: 22%; bottom: 22%;
+  width: 1px; background: rgba(154, 133, 89, 0.3);
+}
+.v7-nav__icon { width: 24px; height: 24px; display: block; }
+.v7-nav__icon svg { width: 100%; height: 100%; }
+.v7-nav__label { font-size: 11px; }
+
+/* 選択中（6.5）：紫系＋控えめな発光＋上辺の紫ライン */
+.v7-nav__item.is-on {
+  color: #b79bff;
+  background: var(--v7-color-accent-soft);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+.v7-nav__item.is-on::after {
+  content: ''; position: absolute; left: 12%; right: 12%; top: 0; height: 2px;
+  background: #8f6ff0; border-radius: 2px;
+}
+
+/* =====================================================================
+   タブ内の共通パネルボタン（カード／対戦／ショップ／その他）
+   ===================================================================== */
+.v7-grid { display: grid; gap: 12px; height: 100%; }
+.v7-grid--2 { grid-template-columns: 1fr 1fr; }
+
+.v7-lr { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; height: 100%; }
+.v7-lr__main { height: 100%; }
+.v7-lr__side { display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
+
+.v7-card-panel {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--v7-radius-large);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);      /* 濃紺ベタ（作者確定） */
+  color: var(--v7-color-text);
+  font-size: 18px; font-weight: 700;
+  cursor: pointer;
+  padding: 14px;
+  min-height: 60px;
   text-align: center;
-  /* セーフエリアの内側に収める */
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.v7-boot__mark {
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+.v7-card-panel--big { font-size: 22px; }
+.v7-card-panel--soon { opacity: 0.9; }
+.v7-card-panel__arrow {
+  position: absolute; right: 12px; bottom: 10px;
+  font-size: 14px; color: var(--v7-color-text-muted);
+}
+.v7-card-panel__badge {
+  position: absolute; right: 10px; top: 10px;
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: rgba(124, 41, 51, 0.5);
+  border: 1px solid rgba(200, 90, 90, 0.4);
+  color: #f2d6d6;
+}
+.v7-card-panel:active { filter: brightness(1.12); }   /* 押下フィードバック（3.5） */
+
+/* =====================================================================
+   ホームタブ（第7部）
+   ===================================================================== */
+.v7-home { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+/* 上段はラフに合わせて低め固定。バナー高＝ボタン2つ積みの高さ。
+   残りの縦をミッションパネルへ回す。 */
+.v7-home__top { display: flex; gap: 10px; flex: 0 0 auto; height: 88px; }
+
+/* バナー（細い横長） */
+.v7-banner {
+  position: relative;
+  flex: 1 1 auto;
+  height: 100%;
+  border-radius: var(--v7-radius-large);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);
+  overflow: hidden;
+}
+.v7-banner__track { display: flex; height: 100%; will-change: transform; touch-action: pan-y; }
+.v7-banner__slide {
+  flex: 0 0 100%;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; color: var(--v7-color-text);
+  font-size: 17px; font-weight: 700; cursor: pointer;
+  padding: 8px 16px 18px; text-align: center;
+}
+.v7-banner__dots {
+  position: absolute; left: 0; right: 0; bottom: 7px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  pointer-events: none;
+}
+.v7-banner__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  transition: all 0.4s ease;
+}
+.v7-banner__dot.is-on {
+  width: 18px; border-radius: 3px;
+  background: #8f6ff0;
+}
+
+/* お知らせ／プレゼント（バナーの右に、丸みのある正方形を縦2つ：作者確定） */
+.v7-home__side { display: flex; flex-direction: column; gap: 8px; width: 84px; flex: 0 0 auto; height: 100%; }
+.v7-home__sidebtn {
+  flex: 1 1 0;
+  border-radius: var(--v7-radius-large);   /* 丸みのある正方形 */
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);
   color: var(--v7-color-text);
-  font-family: var(--v7-font-title);
+  font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px;
 }
-.v7-boot__sub {
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  color: var(--v7-color-text-muted);
+.v7-home__sidebtn:active { filter: brightness(1.12); }
+
+/* ミッションパネル（上段の下、残り全部） */
+.v7-mission {
+  flex: 1 1 auto;
+  display: flex; flex-direction: column;
+  border-radius: var(--v7-radius-large);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);
+  overflow: hidden;
+  min-height: 0;              /* 内部スクロールのため */
 }
-.v7-boot__id {
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--v7-color-text-muted);
+.v7-mission__tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(154, 133, 89, 0.28);
 }
-.v7-boot__id span {
-  color: var(--v7-color-text);
-  letter-spacing: 0.08em;
+.v7-mission__tab {
+  flex: 1 1 0; min-height: 40px;
+  border: 0; background: transparent; cursor: pointer;
+  color: var(--v7-color-text-muted); font-size: 14px;
+  position: relative;
 }
-.v7-boot__note {
-  margin: 14px 0 0;
-  font-size: 12px;
-  line-height: 1.9;
-  color: var(--v7-color-text-muted);
-  opacity: 0.8;
+.v7-mission__tab + .v7-mission__tab::before {
+  content: ''; position: absolute; left: 0; top: 24%; bottom: 24%; width: 1px;
+  background: rgba(154, 133, 89, 0.28);
+}
+.v7-mission__tab.is-on { color: var(--v7-color-text); font-weight: 700; }
+.v7-mission__tab.is-on::after {
+  content: ''; position: absolute; left: 20%; right: 20%; bottom: 0; height: 2px;
+  background: #8f6ff0; border-radius: 2px;
+}
+.v7-mission__list {
+  flex: 1 1 auto;
+  overflow-y: auto;          /* 枠内だけ縦スクロール（7.6） */
+  overscroll-behavior: contain;
+  padding: 6px 12px;
+}
+.v7-mission__row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(154, 133, 89, 0.14);
+  font-size: 14px;
+}
+.v7-mission__row[data-state="done"] { opacity: 0.55; }
+.v7-mission__text { flex: 1 1 auto; }
+.v7-mission__right { flex: 0 0 auto; }
+.v7-mission__prog { font-size: 13px; color: var(--v7-color-text-muted); font-variant-numeric: tabular-nums; }
+.v7-mission__done { font-size: 12px; color: var(--v7-color-text-muted); }
+.v7-mission__claim {
+  min-height: 30px; padding: 4px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--v7-color-accent);
+  background: var(--v7-color-accent-soft);
+  color: #d9c9ff; font-size: 13px; cursor: pointer;
+}
+
+/* 高さ700px未満のコンパクト（18.2）。ハブの詰めを1段階。 */
+@media (max-height: 699px) {
+  .v7-panels {
+    bottom: calc(54px + env(safe-area-inset-bottom, 0px) + 6px);
+    height: 40%;
+    min-height: 170px;
+  }
+  .v7-nav__item { min-height: 52px; }
+  .v7-card-panel { font-size: 16px; }
+  .v7-card-panel--big { font-size: 18px; }
+  .v7-home__top { height: 74px; }
+  .v7-home__side { width: 74px; }
 }
 
 /* =====================================================================
@@ -425,4 +698,9 @@
   .v7-loading__text span { animation: none; }
   .v7-wipe { transition-duration: 0.08s; }
   .v7-toast { transition-duration: 0.08s; }
+  .v7-art__img { transition-duration: 0.12s; }
+  .v7-slide-out-left, .v7-slide-out-right, .v7-slide-center { transition-duration: 0.12s; }
+  .v7-banner__track { transition-duration: 0.12s !important; }
+  .v7-banner__dot { transition-duration: 0.12s; }
+  .v7-nav__item.is-on { transition-duration: 0.12s; }
 }

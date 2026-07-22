@@ -336,7 +336,6 @@ console.log('■ 起動フロー：ローディング後にプレースホルダ
   const { doc } = boot(store, clock);
   const loading = doc.getElementById('v7-loading');
   const home = doc.getElementById('v7-home-placeholder');
-  const bootId = doc.getElementById('v7-boot-id');
 
   // 同じ doc / store で V7Shell と V7Save を取り出して起動
   const full = (function () {
@@ -359,9 +358,9 @@ console.log('■ 起動フロー：ローディング後にプレースホルダ
   check('起動直後はローディングが失敗表示ではない', !loading._cls.has('v7-failed'));
   clock.tick(1000);   // 最低1秒
   clock.tick(400);    // フェード
-  check('ローディング後にプレースホルダが表示される', home._cls.has('v7-on'));
-  check('プレースホルダにローカルIDが差し込まれる',
-    full.Save.isValidLocalId(bootId.textContent), bootId.textContent);
+  check('ローディング後にホーム相当のレイヤーが表示される', home._cls.has('v7-on'));
+  check('起動後もローカルIDは保持されている',
+    full.Save.isValidLocalId(full.Save.localId()), full.Save.localId());
 }
 
 console.log('■ 起動：必須データが遅れてもタイムアウト内なら表示される');
