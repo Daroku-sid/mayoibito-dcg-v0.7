@@ -95,20 +95,28 @@
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: stretch;
+  align-items: center;      /* 9:16箱を上下中央に。余白は濃紺 */
   justify-content: center;
   background: var(--v7-color-bg-outer);
 }
 
 .v7-shell {
   position: relative;
-  width: 100%;
-  max-width: var(--v7-shell-max-w);
-  height: 100vh;                 /* フォールバック */
-  height: 100dvh;                /* 優先（18.3） */
+  /* ラフは 9:16。幅と高さの両方を 9:16 に固定し、画面内へ収める。
+     幅は「画面幅・最大480px・（画面高×9/16）」の最小値。
+     これで 1080基準の実寸（縦1920*--u）が必ず高さに収まる。 */
+  width: min(100vw, var(--v7-shell-max-w), calc((100dvh) * 9 / 16));
+  aspect-ratio: 9 / 16;
+  max-height: 100dvh;
   background: var(--v7-color-bg);
   overflow: hidden;
-  /* 上下のセーフエリアは各画面が内側で避ける。ここでは器の外形だけ。 */
+
+  /* コンテナ化して「1080基準の1px」を単位 --u として定義する。
+     例: 160px の要素 → calc(160 * var(--u))。全端末で比率が保たれる。 */
+  container-type: inline-size;
+  --u: calc(100cqw / 1080);
+  /* ラフのパネル角丸は 30px（1080基準）。実寸連動で使う。 */
+  --v7-panel-radius: calc(30 * var(--u));
 }
 
 /* 個別の画面レイヤーは、この shell の中に絶対配置で積む */
@@ -399,83 +407,139 @@
 .v7-art__tap {
   position: absolute;
   left: 0; right: 0;
-  top: 92px;                            /* 上部情報の下から */
-  bottom: calc(36% + 70px + env(safe-area-inset-bottom, 0px));  /* パネル・ナビに重ねない */
+  top: calc(320 * var(--u) + env(safe-area-inset-top, 0px));   /* 上部情報の下から */
+  bottom: calc((120 + 20 + 548 + 20) * var(--u) + env(safe-area-inset-bottom, 0px));  /* ナビ+間+パネル+間 */
   z-index: 3;
   border: 0; padding: 0; margin: 0;
   background: transparent;
   cursor: pointer;
 }
-@media (max-height: 699px) {
-  .v7-art__tap { bottom: calc(40% + 60px + env(safe-area-inset-bottom, 0px)); }
-}
 
-/* -------- (3) 上部プレイヤー情報・通貨（第6部 6.2/6.3） -------- */
+/* -------- (3) 上部プレイヤー情報・通貨（第6部・ラフ実寸1080基準） --------
+   単位 --u = シェル幅/1080。ラフの px をそのまま calc(px * var(--u)) で置く。
+   セーフエリア上端は v7-safe-top の padding-top で内側へずらす。 */
 .v7-top {
   position: absolute;
   z-index: 20;
-  top: 0; left: 0; right: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px 0;
-  pointer-events: none;      /* 枠自体はタップ透過、子だけ受ける */
+  top: env(safe-area-inset-top, 0px);
+  left: 0; right: 0;
+  height: calc(300 * var(--u));   /* アイコン+称号ぶんの当たり領域 */
+  pointer-events: none;
 }
 .v7-top > * { pointer-events: auto; }
 
+/* プロフィール（アイコン+ネームパネル+称号のまとまり） */
 .v7-profile {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 8px 16px 8px 34px;   /* 左はアイコンのはみ出しぶん */
-  position: relative;
-  border-radius: var(--v7-radius-large);
+  position: absolute;
+  left: calc(20 * var(--u));
+  top: calc(20 * var(--u));
+  width: calc(470 * var(--u));    /* 130(アイコン左)+360(パネル) の右端まで */
+  height: calc(240 * var(--u));   /* パネル120 + 称号ぶん */
+  border: 0; background: transparent; padding: 0; margin: 0;
+  cursor: pointer;
+}
+/* ネームパネル 360×120、左上(130,20)→プロフィール内相対(110,0) */
+.v7-profile__namepanel {
+  position: absolute;
+  left: calc(110 * var(--u));
+  top: 0;
+  width: calc(360 * var(--u));
+  height: calc(120 * var(--u));
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  gap: calc(6 * var(--u));
+  padding-left: calc(70 * var(--u));   /* アイコンに隠れる左側を空ける */
+  padding-right: calc(16 * var(--u));
+  box-sizing: border-box;
+  border-radius: var(--v7-panel-radius);
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
-  color: var(--v7-color-text);
-  cursor: pointer;
-  max-width: 62%;
+  overflow: hidden;
 }
+.v7-profile__name {
+  font-size: calc(40 * var(--u));
+  font-weight: 700; color: var(--v7-color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%; line-height: 1.1;
+}
+.v7-profile__level {
+  font-size: calc(28 * var(--u));
+  color: var(--v7-color-text-muted); line-height: 1.1;
+}
+/* アイコン 160×160、左上(20,20)→プロフィール内相対(0,0)。ネームパネルの上に重ねる */
 .v7-profile__icon {
   position: absolute;
-  left: -6px; top: 50%; transform: translateY(-50%);
-  width: 42px; height: 42px; border-radius: 50%;
+  left: 0; top: 0;
+  width: calc(160 * var(--u));
+  height: calc(160 * var(--u));
+  border-radius: 50%;
   background: #2a3350;
   border: 1px solid var(--v7-color-border-gold);
+  z-index: 2;
 }
-.v7-profile__text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25; overflow: hidden; }
-.v7-profile__name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
-.v7-profile__title { font-size: 11px; color: var(--v7-color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }
+/* 称号：ネームパネル下辺の外側。
+   x はプレイヤー名の左端に揃える（パネル相対left110 + padding-left70 = 180）。
+   y はパネル下辺(相対120)の10px下 = 相対130（画面絶対では 200,150）。 */
+.v7-profile__title {
+  position: absolute;
+  left: calc(180 * var(--u));
+  top: calc(130 * var(--u));
+  max-width: calc(340 * var(--u));
+  font-size: calc(30 * var(--u));
+  color: var(--v7-color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
 
-.v7-currency { display: flex; flex-direction: column; gap: 6px; }
+/* 通貨 270×70 を20px間隔で縦2つ。右端から20px、上端20px。 */
+.v7-currency {
+  position: absolute;
+  right: calc(20 * var(--u));
+  top: calc(20 * var(--u));
+  display: flex; flex-direction: column;
+  gap: calc(20 * var(--u));
+}
 .v7-cur {
-  display: flex; align-items: center; gap: 6px;
-  min-height: 30px; padding: 4px 12px 4px 8px;
+  position: relative;
+  width: calc(270 * var(--u));
+  height: calc(70 * var(--u));
+  display: flex; align-items: center; gap: calc(10 * var(--u));
+  padding: 0 calc(56 * var(--u)) 0 calc(16 * var(--u));  /* 右は+表示ぶん */
+  box-sizing: border-box;
   border-radius: var(--v7-radius-medium);
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
-  color: var(--v7-color-text); font-size: 13px; cursor: pointer;
-  justify-content: flex-end; min-width: 84px;
+  color: var(--v7-color-text);
+  font-size: calc(30 * var(--u));
+  cursor: pointer;
 }
-.v7-cur__icon { width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto; }
+.v7-cur__icon { width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; flex: 0 0 auto; }
 .v7-cur__icon--soft { background: #d7b25a; }
 .v7-cur__icon--premium { background: #7fb0e6; }
-.v7-cur__val { font-variant-numeric: tabular-nums; }
+.v7-cur__val { flex: 1 1 auto; text-align: right; font-variant-numeric: tabular-nums; }
+/* 課金ストア誘導の「四角＋プラス」表示（ボタンではなく表示のみ） */
+.v7-cur__plus {
+  position: absolute;
+  right: calc(10 * var(--u));
+  top: 50%; transform: translateY(-50%);
+  width: calc(40 * var(--u)); height: calc(40 * var(--u));
+  display: flex; align-items: center; justify-content: center;
+  border-radius: calc(8 * var(--u));
+  border: 1px solid var(--v7-color-border-gold);
+  background: rgba(255,255,255,0.06);
+  font-size: calc(30 * var(--u)); line-height: 1;
+  color: var(--v7-color-text);
+}
 
-/* -------- (4) タブ固有パネル領域（第6部 6.4） --------
-   下端はメインナビ（セーフエリア込みの実高）の少し上に固定する。
-   ナビ高が端末のホームバー分だけ伸びても重ならないよう calc で確保。 */
+/* -------- (4) タブ固有パネル領域（第6部 6.4・ラフ実寸1080基準） --------
+   下端はナビ上端の20px上。高さはホームの総高（バナー120 + 20 + ミッション408
+   = 548）に合わせ、全タブ共通の枠とする。左右端は20ずつ。 */
 .v7-panels {
   position: absolute;
   z-index: 15;
-  left: 0; right: 0;
-  bottom: calc(62px + env(safe-area-inset-bottom, 0px) + 8px);  /* ナビ上 */
-  height: 36%;
-  min-height: 200px;
-  max-height: 340px;
-  padding: 0 12px;
+  left: calc(20 * var(--u));
+  right: calc(20 * var(--u));
+  bottom: calc((120 + 20) * var(--u) + env(safe-area-inset-bottom, 0px));  /* ナビ120 + 間20 */
+  height: calc(548 * var(--u));
   overflow: hidden;
 }
 .v7-panel-slider { position: relative; width: 100%; height: 100%; }
@@ -488,20 +552,22 @@
 .v7-slide-out-right { transform: translateX(100%);  transition: transform 0.3s ease; }
 .v7-slide-center    { transform: translateX(0);     transition: transform 0.3s ease; }
 
-/* -------- (5) メインナビ（第6部 6.5） -------- */
+/* -------- (5) メインナビ（第6部 6.5・ラフ実寸 1080×120・底辺接地） -------- */
 .v7-nav {
   position: absolute;
   z-index: 25;
   left: 0; right: 0; bottom: 0;
+  height: calc(120 * var(--u) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);  /* ホームバーを避ける */
+  box-sizing: border-box;
   display: flex;
   background: rgba(6, 9, 18, 0.94);
   border-top: 1px solid rgba(154, 133, 89, 0.35);
 }
 .v7-nav__item {
   flex: 1 1 0;
-  min-height: 58px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px;
+  gap: calc(6 * var(--u));
   border: 0; background: transparent; cursor: pointer;
   color: var(--v7-color-text-muted);
   position: relative;
@@ -511,9 +577,9 @@
   content: ''; position: absolute; left: 0; top: 22%; bottom: 22%;
   width: 1px; background: rgba(154, 133, 89, 0.3);
 }
-.v7-nav__icon { width: 24px; height: 24px; display: block; }
+.v7-nav__icon { width: calc(46 * var(--u)); height: calc(46 * var(--u)); display: block; }
 .v7-nav__icon svg { width: 100%; height: 100%; }
-.v7-nav__label { font-size: 11px; }
+.v7-nav__label { font-size: calc(24 * var(--u)); }
 
 /* 選択中（6.5）：紫系＋控えめな発光＋上辺の紫ライン */
 .v7-nav__item.is-on {
@@ -529,35 +595,34 @@
 /* =====================================================================
    タブ内の共通パネルボタン（カード／対戦／ショップ／その他）
    ===================================================================== */
-.v7-grid { display: grid; gap: 12px; height: 100%; }
+.v7-grid { display: grid; gap: calc(20 * var(--u)); height: 100%; }
 .v7-grid--2 { grid-template-columns: 1fr 1fr; }
 
-.v7-lr { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; height: 100%; }
+.v7-lr { display: grid; grid-template-columns: 1.6fr 1fr; gap: calc(20 * var(--u)); height: 100%; }
 .v7-lr__main { height: 100%; }
-.v7-lr__side { display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
+.v7-lr__side { display: grid; grid-template-rows: 3fr 2fr; gap: calc(20 * var(--u)); }
 
 .v7-card-panel {
   position: relative;
   display: flex; align-items: center; justify-content: center;
-  border-radius: var(--v7-radius-large);
+  border-radius: var(--v7-panel-radius);
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);      /* 濃紺ベタ（作者確定） */
   color: var(--v7-color-text);
-  font-size: 18px; font-weight: 700;
+  font-size: calc(38 * var(--u)); font-weight: 700;
   cursor: pointer;
-  padding: 14px;
-  min-height: 60px;
+  padding: calc(20 * var(--u));
   text-align: center;
 }
-.v7-card-panel--big { font-size: 22px; }
+.v7-card-panel--big { font-size: calc(46 * var(--u)); }
 .v7-card-panel--soon { opacity: 0.9; }
 .v7-card-panel__arrow {
-  position: absolute; right: 12px; bottom: 10px;
-  font-size: 14px; color: var(--v7-color-text-muted);
+  position: absolute; right: calc(20 * var(--u)); bottom: calc(16 * var(--u));
+  font-size: calc(28 * var(--u)); color: var(--v7-color-text-muted);
 }
 .v7-card-panel__badge {
-  position: absolute; right: 10px; top: 10px;
-  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  position: absolute; right: calc(16 * var(--u)); top: calc(16 * var(--u));
+  font-size: calc(22 * var(--u)); padding: calc(4 * var(--u)) calc(14 * var(--u)); border-radius: calc(18 * var(--u));
   background: rgba(124, 41, 51, 0.5);
   border: 1px solid rgba(200, 90, 90, 0.4);
   color: #f2d6d6;
@@ -565,19 +630,28 @@
 .v7-card-panel:active { filter: brightness(1.12); }   /* 押下フィードバック（3.5） */
 
 /* =====================================================================
-   ホームタブ（第7部）
+   ホームタブ（第7部・ラフ実寸1080基準）
    ===================================================================== */
-.v7-home { display: flex; flex-direction: column; gap: 10px; height: 100%; }
-/* 上段はラフに合わせて低め固定。バナー高＝ボタン2つ積みの高さ。
-   残りの縦をミッションパネルへ回す。 */
-.v7-home__top { display: flex; gap: 10px; flex: 0 0 auto; height: 88px; }
+/* パネル領域（幅=1040=1080-左右20, 高さ=548）の中を
+   上段バナー行120 + 間20 + ミッション408 に割る。 */
+.v7-home { position: relative; width: 100%; height: 100%; }
 
-/* バナー（細い横長） */
+/* 上段：バナー760 + 間20 + お知らせ120 + 間20 + プレゼント120 の横一列 */
+.v7-home__top {
+  position: absolute;
+  left: 0; top: 0; right: 0;
+  height: calc(120 * var(--u));
+  display: flex;
+  gap: calc(20 * var(--u));
+}
+
+/* バナー 760×120（細い横長） */
 .v7-banner {
   position: relative;
-  flex: 1 1 auto;
+  width: calc(760 * var(--u));
   height: 100%;
-  border-radius: var(--v7-radius-large);
+  flex: 0 0 auto;
+  border-radius: var(--v7-panel-radius);
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
   overflow: hidden;
@@ -587,56 +661,59 @@
   flex: 0 0 100%;
   display: flex; align-items: center; justify-content: center;
   border: 0; background: transparent; color: var(--v7-color-text);
-  font-size: 17px; font-weight: 700; cursor: pointer;
-  padding: 8px 16px 18px; text-align: center;
+  font-size: calc(36 * var(--u)); font-weight: 700; cursor: pointer;
+  padding: 0 calc(24 * var(--u)) calc(20 * var(--u)); text-align: center;
 }
 .v7-banner__dots {
-  position: absolute; left: 0; right: 0; bottom: 7px;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+  position: absolute; left: 0; right: 0; bottom: calc(12 * var(--u));
+  display: flex; align-items: center; justify-content: center; gap: calc(10 * var(--u));
   pointer-events: none;
 }
 .v7-banner__dot {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: calc(10 * var(--u)); height: calc(10 * var(--u)); border-radius: 50%;
   background: rgba(255,255,255,0.35);
   transition: all 0.4s ease;
 }
 .v7-banner__dot.is-on {
-  width: 18px; border-radius: 3px;
+  width: calc(28 * var(--u)); border-radius: calc(5 * var(--u));
   background: #8f6ff0;
 }
 
-/* お知らせ／プレゼント（バナーの右に、丸みのある正方形を縦2つ：作者確定） */
-.v7-home__side { display: flex; flex-direction: column; gap: 8px; width: 84px; flex: 0 0 auto; height: 100%; }
+/* お知らせ／プレゼント（各120×120の正方形。バナーと横一列） */
+.v7-home__side { display: flex; gap: calc(20 * var(--u)); flex: 0 0 auto; height: 100%; }
 .v7-home__sidebtn {
-  flex: 1 1 0;
-  border-radius: var(--v7-radius-large);   /* 丸みのある正方形 */
+  width: calc(120 * var(--u));
+  height: 100%;                             /* =120*--u（正方形） */
+  border-radius: var(--v7-panel-radius);
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
   color: var(--v7-color-text);
-  font-size: 12px; cursor: pointer;
+  font-size: calc(24 * var(--u)); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  padding: 6px;
+  padding: calc(8 * var(--u)); text-align: center;
 }
 .v7-home__sidebtn:active { filter: brightness(1.12); }
 
-/* ミッションパネル（上段の下、残り全部） */
+/* ミッションパネル 1080×408（上段の下、間20） */
 .v7-mission {
-  flex: 1 1 auto;
+  position: absolute;
+  left: 0; right: 0;
+  top: calc((120 + 20) * var(--u));
+  height: calc(408 * var(--u));
   display: flex; flex-direction: column;
-  border-radius: var(--v7-radius-large);
+  border-radius: var(--v7-panel-radius);
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
   overflow: hidden;
-  min-height: 0;              /* 内部スクロールのため */
 }
 .v7-mission__tabs {
   display: flex;
   border-bottom: 1px solid rgba(154, 133, 89, 0.28);
 }
 .v7-mission__tab {
-  flex: 1 1 0; min-height: 40px;
+  flex: 1 1 0; height: calc(80 * var(--u));
   border: 0; background: transparent; cursor: pointer;
-  color: var(--v7-color-text-muted); font-size: 14px;
+  color: var(--v7-color-text-muted); font-size: calc(30 * var(--u));
   position: relative;
 }
 .v7-mission__tab + .v7-mission__tab::before {
@@ -652,41 +729,28 @@
   flex: 1 1 auto;
   overflow-y: auto;          /* 枠内だけ縦スクロール（7.6） */
   overscroll-behavior: contain;
-  padding: 6px 12px;
+  padding: calc(6 * var(--u)) calc(24 * var(--u));
 }
 .v7-mission__row {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 10px 2px;
+  display: flex; align-items: center; justify-content: space-between; gap: calc(16 * var(--u));
+  padding: calc(20 * var(--u)) calc(4 * var(--u));
   border-bottom: 1px solid rgba(154, 133, 89, 0.14);
-  font-size: 14px;
+  font-size: calc(30 * var(--u));
 }
 .v7-mission__row[data-state="done"] { opacity: 0.55; }
 .v7-mission__text { flex: 1 1 auto; }
 .v7-mission__right { flex: 0 0 auto; }
-.v7-mission__prog { font-size: 13px; color: var(--v7-color-text-muted); font-variant-numeric: tabular-nums; }
-.v7-mission__done { font-size: 12px; color: var(--v7-color-text-muted); }
+.v7-mission__prog { font-size: calc(28 * var(--u)); color: var(--v7-color-text-muted); font-variant-numeric: tabular-nums; }
+.v7-mission__done { font-size: calc(26 * var(--u)); color: var(--v7-color-text-muted); }
 .v7-mission__claim {
-  min-height: 30px; padding: 4px 14px;
-  border-radius: 14px;
+  min-height: calc(56 * var(--u)); padding: calc(6 * var(--u)) calc(24 * var(--u));
+  border-radius: calc(24 * var(--u));
   border: 1px solid var(--v7-color-accent);
   background: var(--v7-color-accent-soft);
-  color: #d9c9ff; font-size: 13px; cursor: pointer;
+  color: #d9c9ff; font-size: calc(28 * var(--u)); cursor: pointer;
 }
 
 /* 高さ700px未満のコンパクト（18.2）。ハブの詰めを1段階。 */
-@media (max-height: 699px) {
-  .v7-panels {
-    bottom: calc(54px + env(safe-area-inset-bottom, 0px) + 6px);
-    height: 40%;
-    min-height: 170px;
-  }
-  .v7-nav__item { min-height: 52px; }
-  .v7-card-panel { font-size: 16px; }
-  .v7-card-panel--big { font-size: 18px; }
-  .v7-home__top { height: 74px; }
-  .v7-home__side { width: 74px; }
-}
-
 /* =====================================================================
    23. 動きを減らす設定（prefers-reduced-motion）
    ---------------------------------------------------------------------
