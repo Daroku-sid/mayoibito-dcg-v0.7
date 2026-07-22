@@ -13,7 +13,7 @@
 const V7Home = {
 
   BANNER_MS: 5000,     // 5秒（7.2）
-  BANNER_ANIM: 400,    // 0.4秒（7.2/7.3）
+  BANNER_ANIM: 650,    // 0.65秒（作者指示で 0.4→少しゆっくりに）
 
   _bannerIdx: 0,
   _banners: [],
@@ -135,11 +135,30 @@ const V7Home = {
     const up = function () {
       if (!self._dragging) return;
       self._dragging = false;
+      const last = self._banners.length - 1;
       const threshold = w * 0.2;
-      if (dx <= -threshold) self._bannerIdx = Math.min(self._banners.length - 1, self._bannerIdx + 1);
-      else if (dx >= threshold) self._bannerIdx = Math.max(0, self._bannerIdx - 1);
+      let wrapped = false;          // 端をまたいで反対端へ折り返したか
+
+      if (dx <= -threshold) {
+        // 左スワイプ（次へ）。末尾より先なら先頭へ折り返す。
+        if (self._bannerIdx >= last) { self._bannerIdx = 0; wrapped = true; }
+        else self._bannerIdx += 1;
+      } else if (dx >= threshold) {
+        // 右スワイプ（前へ）。先頭より前なら末尾へ折り返す。
+        if (self._bannerIdx <= 0) { self._bannerIdx = last; wrapped = true; }
+        else self._bannerIdx -= 1;
+      }
       dx = 0;
-      // px 指定から % 指定へ戻して吸着
+
+      if (wrapped) {
+        // 折り返しは全スライドぶんの逆流を見せたくないので瞬間移動で整える。
+        self._applyBanner(false);         // アニメなしで反対端へ
+        self.resumeBanner();              // 5秒タイマー再開（リセット）
+        V7Timers.set('banner-tapguard', function () { self._movedByDrag = false; }, 60);
+        return;
+      }
+
+      // 通常の吸着：px 指定でアニメさせ、完了後に % 指定へ整え直す
       track.style.transition = 'transform ' + self.BANNER_ANIM + 'ms ease';
       track.style.transform = 'translateX(' + (-self._bannerIdx * w) + 'px)';
       V7Timers.set('banner-snap', function () {

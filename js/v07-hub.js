@@ -53,12 +53,15 @@ const V7Hub = {
      ------------------------------------------------------------- */
   _renderProfile: function () {
     const name = document.getElementById('v7-profile-name');
+    const level = document.getElementById('v7-profile-level');
     const title = document.getElementById('v7-profile-title');
     const p = (typeof V7Save !== 'undefined' && V7Save.data) ? V7Save.data.profile : null;
     if (p) {
       if (name) name.textContent = p.playerName || 'プレイヤー';
       if (title) title.textContent = p.title || 'はじめての一歩';
     }
+    // レベルは仕様書6.2で将来追加の余地。v0.7 では Lv.1 固定表示。
+    if (level) level.textContent = 'Lv.1';
     const btn = document.getElementById('v7-profile');
     if (btn) btn.onclick = function () {
       // プロフィール画面は Stage 3。ここでは仮ダイアログ。
