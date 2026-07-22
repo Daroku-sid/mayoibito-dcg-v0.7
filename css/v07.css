@@ -1,0 +1,428 @@
+/* =====================================================================
+   v07.css ― v0.7 の外側の器（Stage 1：基盤）
+   ---------------------------------------------------------------------
+   ここには v0.7 で新設する「メインハブの器」だけを書きます。
+   既存の対戦画面（#viewport / #stage）や menu 階層の CSS には
+   一切触れません（仕様書 第21・26・32部：既存を壊さない）。
+
+   Stage 1 の範囲（仕様書 第27部）:
+     ・共通デザイントークン（第3部 3.2）
+     ・9:16 アプリシェル（第18部）
+     ・ローディング画面（第4部）
+     ・暗転レイヤー・ダイアログ基盤・通知基盤（第15・16部）
+     ・スマホ横向き案内 / PC中央480px（第18部 18.4）
+     ・高さ700px未満コンパクト表示の基盤（第18部 18.2）
+     ・prefers-reduced-motion 基盤（第23部）
+
+   Stage 2 以降で作るもの（メインハブ本体・5タブ・一枚絵など）は、
+   まだここには書きません。
+   ===================================================================== */
+
+/* =====================================================================
+   3.2 初期デザイントークン
+   数値は Stage 5 で実機調整可能。まずは仕様書の基準値を置きます。
+   ===================================================================== */
+:root {
+  --v7-color-bg: #070a12;
+  --v7-color-bg-outer: #050812;
+  --v7-color-panel: rgba(10, 17, 32, 0.88);
+  --v7-color-panel-soft: rgba(10, 17, 32, 0.72);
+  --v7-color-border-gold: #9a8559;
+  --v7-color-text: #f2eee4;
+  --v7-color-text-muted: #b9b1a3;
+  --v7-color-accent: #7650c8;
+  --v7-color-accent-soft: rgba(118, 80, 200, 0.30);
+  --v7-color-danger: #7c2933;
+  --v7-radius-small: 10px;
+  --v7-radius-medium: 16px;
+  --v7-radius-large: 22px;
+
+  /* 器の最大幅（第18部 18.1：PCでは最大480px） */
+  --v7-shell-max-w: 480px;
+
+  /* 将来、画面タイトルや大見出しだけ装飾フォントへ差し替えられるよう
+     変数に分離しておきます（第3部 3.3）。v0.7 では基本フォントのまま。 */
+  --v7-font-title: inherit;
+}
+
+/* =====================================================================
+   基本フォント（第3部 3.3）
+   ===================================================================== */
+.v7-root,
+.v7-root button,
+.v7-root input {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Noto Sans JP",
+    "Hiragino Kaku Gothic ProN",
+    "Yu Gothic",
+    sans-serif;
+}
+
+/* =====================================================================
+   v0.7 ルート：画面全体を覆う最前面レイヤー
+   ---------------------------------------------------------------------
+   既存の #viewport は裏に残したまま、その上に器をかぶせます。
+   Stage 4 で既存機能へ入るときだけ、この層を隠します。
+   ===================================================================== */
+.v7-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;                 /* 既存 UI より前 */
+  background: var(--v7-color-bg-outer);
+  color: var(--v7-color-text);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* v0.7 の器を隠す（既存機能へ入るとき。Stage 4 で使用） */
+.v7-root.v7-hidden { display: none; }
+
+/* =====================================================================
+   18. アプリシェル：9:16 をたもって中央へ収める
+   ---------------------------------------------------------------------
+   ・幅は 100% だが、PC などでは最大480px（18.1）
+   ・高さは 100dvh 優先、非対応環境は 100vh（18.3）
+   ・外側は濃紺の無地（18.4 PC）
+   ・セーフエリアは shell の内側パディングで避ける
+   ===================================================================== */
+.v7-shell-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: var(--v7-color-bg-outer);
+}
+
+.v7-shell {
+  position: relative;
+  width: 100%;
+  max-width: var(--v7-shell-max-w);
+  height: 100vh;                 /* フォールバック */
+  height: 100dvh;                /* 優先（18.3） */
+  background: var(--v7-color-bg);
+  overflow: hidden;
+  /* 上下のセーフエリアは各画面が内側で避ける。ここでは器の外形だけ。 */
+}
+
+/* 個別の画面レイヤーは、この shell の中に絶対配置で積む */
+.v7-layer {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+.v7-layer.v7-on { display: block; }
+
+/* セーフエリアの内側だけを使うための共通ヘルパ
+   （上：ノッチ / 下：ホームバー） */
+.v7-safe-top    { padding-top: env(safe-area-inset-top, 0px); }
+.v7-safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* =====================================================================
+   4. ローディング画面（第4部）
+   ---------------------------------------------------------------------
+   ・背景は完全な黒 / ロゴや装飾は出さない
+   ・右下に「読み込み中...」
+   ・各文字を左から順にゆっくり上下（ウェーブ）
+   ・タイムアウト時は失敗表示＋再読み込み
+   ===================================================================== */
+.v7-loading {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  /* セーフエリアを考慮して配置（4.1） */
+  padding: env(safe-area-inset-top, 0px)
+           calc(env(safe-area-inset-right, 0px) + 22px)
+           calc(env(safe-area-inset-bottom, 0px) + 20px)
+           env(safe-area-inset-left, 0px);
+}
+
+.v7-loading__text {
+  display: inline-flex;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--v7-color-text-muted);
+}
+.v7-loading__text span {
+  display: inline-block;
+  white-space: pre;
+  animation: v7-wave 1.4s ease-in-out infinite;
+}
+@keyframes v7-wave {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%           { transform: translateY(-3px); }
+}
+
+/* 失敗表示（4.1 タイムアウト） */
+.v7-loading__fail {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 26px;
+  text-align: center;
+}
+.v7-loading.v7-failed { align-items: center; justify-content: center; }
+.v7-loading.v7-failed .v7-loading__text { display: none; }
+.v7-loading.v7-failed .v7-loading__fail { display: flex; }
+
+.v7-loading__fail p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--v7-color-text);
+}
+.v7-loading__retry {
+  min-width: 160px;
+  min-height: 46px;
+  padding: 12px 24px;
+  border-radius: var(--v7-radius-medium);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text);
+  font-size: 15px;
+  cursor: pointer;
+}
+.v7-loading__retry:disabled { opacity: 0.5; cursor: default; }
+
+/* =====================================================================
+   15.2 個別画面の暗転レイヤー（進入・復帰で 0.4 秒）
+   ---------------------------------------------------------------------
+   0.2秒で黒くする → 暗転中に切り替え → 0.2秒で戻す。
+   Stage 1 では層と CSS だけ用意し、Stage 3・4 の遷移で使います。
+   ===================================================================== */
+.v7-wipe {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s linear;
+}
+.v7-wipe.v7-on {
+  opacity: 1;
+  pointer-events: auto;          /* 暗転中は入力不可（15.2） */
+}
+
+/* =====================================================================
+   16. ダイアログ・通知
+   ===================================================================== */
+
+/* --- 16.1/16.2 ダイアログ暗幕 --- */
+.v7-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.66);   /* 60〜70%（16.1） */
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+}
+.v7-scrim.v7-on { display: flex; }
+
+/* --- ダイアログ本体 --- */
+.v7-dialog {
+  width: 100%;
+  max-width: 420px;              /* 80〜88% を shell 内で担保 */
+  box-sizing: border-box;
+  background: var(--v7-color-panel);
+  border: 1px solid var(--v7-color-border-gold);
+  border-radius: var(--v7-radius-large);
+  padding: 22px 20px 18px;
+  color: var(--v7-color-text);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+}
+.v7-dialog__title {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--v7-font-title);
+}
+.v7-dialog__body {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--v7-color-text);
+  max-height: 46vh;
+  overflow-y: auto;             /* 長文のみ内部スクロール（16.1） */
+  overscroll-behavior: contain;
+  white-space: pre-wrap;
+}
+.v7-dialog__buttons {
+  display: flex;
+  gap: 12px;
+}
+.v7-dialog__buttons.v7-single { justify-content: stretch; }
+.v7-dialog__btn {
+  flex: 1 1 0;
+  min-height: 46px;
+  padding: 12px 16px;
+  border-radius: var(--v7-radius-medium);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-panel-soft);
+  color: var(--v7-color-text);
+  font-size: 15px;
+  cursor: pointer;
+}
+.v7-dialog__btn.v7-primary {
+  border-color: var(--v7-color-accent);
+  background: var(--v7-color-accent-soft);
+}
+/* 危険操作の実行ボタンは暗い赤（16.2） */
+.v7-dialog__btn.v7-danger {
+  border-color: var(--v7-color-danger);
+  background: rgba(124, 41, 51, 0.42);
+}
+
+/* =====================================================================
+   16.3 短時間通知（画面上部・約4秒・順番に1件ずつ）
+   ---------------------------------------------------------------------
+   位置は shell 上部。メインハブでは情報・通貨の少し下だが、
+   Stage 1 では shell 上端（セーフエリア内側）に出す土台のみ。
+   ===================================================================== */
+.v7-toast-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 0;
+  pointer-events: none;
+}
+.v7-toast {
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 16px;
+  border-radius: var(--v7-radius-medium);
+  background: rgba(4, 6, 12, 0.86);
+  border: 1px solid rgba(154, 133, 89, 0.4);
+  color: var(--v7-color-text);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.v7-toast.v7-in { opacity: 1; transform: translateY(0); }
+
+/* =====================================================================
+   18.4 スマホ横向き案内（縦向きを促す）
+   ---------------------------------------------------------------------
+   ・スマホ横向き（coarse + hover:none + landscape）でのみ出す
+   ・PC の横長では出さない（18.4）
+   ===================================================================== */
+.v7-rotate {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  background: var(--v7-color-bg);
+  text-align: center;
+}
+.v7-rotate p {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--v7-color-text);
+}
+
+@media (orientation: landscape) and (pointer: coarse) and (hover: none) {
+  .v7-rotate { display: flex; }
+}
+
+/* =====================================================================
+   18.2 高さ 700px 未満のコンパクト表示（基盤・1段階のみ）
+   ---------------------------------------------------------------------
+   Stage 1 では、器と共通部品が縮んでも破綻しないよう、
+   ルートに目印クラス相当のフックだけ用意します。
+   実際の各パネルの詰めは Stage 2 以降で行います。
+   ===================================================================== */
+@media (max-height: 699px) {
+  .v7-shell { --v7-compact: 1; }
+  .v7-loading__text { font-size: 14px; }
+}
+
+/* =====================================================================
+   起動確認用プレースホルダ（Stage 1 のみ）
+   ---------------------------------------------------------------------
+   器が立ち上がったことが分かる最小の仮表示です。
+   Stage 2 でメインハブ本体に置き換えます。
+   ===================================================================== */
+.v7-boot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 28px;
+  text-align: center;
+  /* セーフエリアの内側に収める */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.v7-boot__mark {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--v7-color-text);
+  font-family: var(--v7-font-title);
+}
+.v7-boot__sub {
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  color: var(--v7-color-text-muted);
+}
+.v7-boot__id {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--v7-color-text-muted);
+}
+.v7-boot__id span {
+  color: var(--v7-color-text);
+  letter-spacing: 0.08em;
+}
+.v7-boot__note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--v7-color-text-muted);
+  opacity: 0.8;
+}
+
+/* =====================================================================
+   23. 動きを減らす設定（prefers-reduced-motion）
+   ---------------------------------------------------------------------
+   ・ローディング文字のウェーブ停止
+   ・暗転を短縮
+   ・押下時の明度変化は維持（ここでは特に無効化しない）
+   ===================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .v7-loading__text span { animation: none; }
+  .v7-wipe { transition-duration: 0.08s; }
+  .v7-toast { transition-duration: 0.08s; }
+}
