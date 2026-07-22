@@ -372,11 +372,9 @@ const V7Shell = {
       }, 360);
     }
     this._bootDone = true;
-    // Stage 1：起動後はホーム相当のプレースホルダを表示（中身は Stage 2）
+    // Stage 2：起動後はメインハブを表示し、初期化する
     if (this._els.home) this._els.home.classList.add('v7-on');
-    // 起動確認として、保存レイヤーが用意したローカルIDを見せる
-    const idEl = document.getElementById('v7-boot-id');
-    if (idEl) idEl.textContent = V7Save.localId() || '—';
+    if (typeof V7Hub !== 'undefined') V7Hub.init();
   },
 
   _showLoadingFail: function () {
