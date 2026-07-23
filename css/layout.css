@@ -3390,3 +3390,154 @@ body.is-deckdrag { cursor: grabbing; }
 .card-stack .card--holder {
   z-index: 1;
 }
+
+/* =====================================================================
+   v0.7 Stage 5：既存メニューの文字を読める大きさへ（第3部 3.3）
+   ---------------------------------------------------------------------
+   既存画面は #stage（1080×1920）を transform:scale(--fit) で縮めて
+   表示している。--fit は 320px 端末で約 0.296 なので、
+   1080基準で 26px と書いた文字は実機で 7.7px にしかならず、
+   仕様の下限（本文14 / ボタン15 / パネルタイトル16 / 画面タイトル18 /
+   補足12）を大きく割り込んでいた。
+
+   そこで #start-screen 配下（メニュー系）に限り、下限を満たす
+   1080基準値へ引き上げる。必要倍率は 320px 端末を基準に
+     本文    14 / 0.296 ≒ 47px
+     ボタン  15 / 0.296 ≒ 51px
+     タイトル18 / 0.296 ≒ 61px
+     補足    12 / 0.296 ≒ 41px
+   としている。
+
+   ★対戦盤面（#stage 直下のカード配置・ゾーン）には触れない。
+     セレクタを #start-screen 配下に限定しているため、
+     盤面・チュートリアル表示・結果画面には影響しない（第21部 21.3）。
+   ===================================================================== */
+
+/* --- 画面タイトル（下限18px相当＝61px以上） --- */
+#start-screen .menu__title      { font-size: 64px; }
+#start-screen .listbar__title   { font-size: 61px; }
+#start-screen .cdetail__name    { font-size: 61px; }
+#start-screen .dedetail__name   { font-size: 58px; }
+#start-screen .dedit__name      { font-size: 52px; }
+
+/* --- パネルタイトル・見出し（下限16px相当＝54px以上） --- */
+#start-screen .menu__group-title { font-size: 55px; }
+#start-screen .menu__card-name   { font-size: 56px; }
+#start-screen .cardlist__sep     { font-size: 48px; }
+
+/* --- ボタン文字（下限15px相当＝51px以上） --- */
+#start-screen .menu__go         { font-size: 55px; }
+#start-screen .menu__back       { font-size: 51px; }
+#start-screen .menu__choice     { font-size: 51px; }
+#start-screen .menu__choice--small { font-size: 48px; }
+#start-screen .listbar__back    { font-size: 48px; }
+#start-screen .dpick            { font-size: 48px; }
+#start-screen .dlfoot__add      { font-size: 51px; }
+#start-screen .dvfoot__btn      { font-size: 48px; }
+#start-screen .dedit__save      { font-size: 48px; }
+#start-screen .dedetail__btn    { font-size: 48px; }
+#start-screen .cdetail__close   { font-size: 51px; }
+#start-screen .dedetail__close  { font-size: 48px; }
+
+/* --- 通常本文（下限14px相当＝47px以上） --- */
+#start-screen .menu            { font-size: 48px; }
+#start-screen .menu__label     { font-size: 48px; }
+#start-screen .menu__desc      { font-size: 48px; }
+#start-screen .menu__card-desc { font-size: 48px; }
+#start-screen .menu__note      { font-size: 48px; }
+#start-screen .menu__done      { font-size: 48px; }
+#start-screen .menu__error     { font-size: 48px; }
+#start-screen .menu__wide      { font-size: 48px; }
+#start-screen .cardlist        { font-size: 48px; }
+#start-screen .cardlist__empty { font-size: 48px; }
+#start-screen .cltools__search { font-size: 48px; }
+#start-screen .cdetail         { font-size: 48px; }
+#start-screen .cdetail__effect { font-size: 48px; }
+#start-screen .dedetail        { font-size: 48px; }
+#start-screen .dedetail__effect { font-size: 48px; }
+#start-screen .dedetail__nums  { font-size: 48px; }
+#start-screen .tfin__lead      { font-size: 48px; }
+#start-screen .tfin__row       { font-size: 48px; }
+#start-screen .howto           { font-size: 48px; }
+
+/* --- 補足・ラベル・日付（下限12px相当＝41px以上） --- */
+#start-screen .menu__hint      { font-size: 41px; }
+#start-screen .menu__tag       { font-size: 41px; }
+#start-screen .menu__corner    { font-size: 41px; }
+#start-screen .listbar__count  { font-size: 41px; }
+#start-screen .cltools         { font-size: 41px; }
+#start-screen .cltools__label  { font-size: 41px; }
+#start-screen .cltools__chip   { font-size: 41px; }
+#start-screen .dband           { font-size: 41px; }
+#start-screen .dlfoot          { font-size: 41px; }
+#start-screen .dlfoot__note    { font-size: 41px; }
+#start-screen .dview__time     { font-size: 41px; }
+#start-screen .dedit__field    { font-size: 41px; }
+#start-screen .dedit__state    { font-size: 41px; }
+#start-screen .dedetail__why   { font-size: 41px; }
+#start-screen .fpick__note     { font-size: 41px; }
+#start-screen .dvfoot          { font-size: 41px; }
+
+/* --- 文字を大きくしたことで横に収まらなくなる箇所の調整（仕様 3.3）---
+   「文字を極端に縮小せず、余白・改行・配置を調整する」方針に従う。 */
+
+/* 難易度の5択（弱／中／強／エキスパート／理不尽）は
+   1行に収まらないので、折り返しを許して2段に流す。 */
+#start-screen .menu__choices {
+  flex-wrap: wrap;
+  gap: 14px;
+}
+#start-screen .menu__choice {
+  padding: 20px 8px;          /* 縦の余白を少し詰める */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#start-screen .menu__choice--small {
+  white-space: normal;        /* 長い語（エキスパート）を折り返せるように */
+  padding: 16px 10px;
+  line-height: 1.25;
+  /* 「理不尽」だけが2段目に落ちて不揃いに見えるのを防ぐ。
+     3つで1段になる幅（(800 - 14*2) / 3 ≒ 257px）を下限にして
+     3＋2 のきれいな2段にする。 */
+  flex: 1 1 240px;
+  min-width: 240px;
+}
+
+/* 一覧のヘッダーバー：戻る・タイトル・件数が詰まらないように */
+#start-screen .listbar {
+  gap: 14px;
+  padding: 20px 24px;
+}
+#start-screen .listbar__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#start-screen .listbar__count { flex: 0 0 auto; white-space: nowrap; }
+#start-screen .listbar__back  { flex: 0 0 auto; white-space: nowrap; }
+
+/* デッキ一覧・確認のフッターボタン：横並びが窮屈にならないように */
+#start-screen .dlfoot { gap: 14px; padding: 16px 20px 20px; flex-wrap: wrap; }
+#start-screen .dvfoot { gap: 10px; padding: 16px 20px 20px; }
+
+/* 検索・絞り込みのチップ類：折り返して2段以上になってよい */
+#start-screen .cltools__row { gap: 8px; }
+#start-screen .cltools__chip { padding: 10px 14px; white-space: nowrap; }
+
+/* 設定のラベルと値：長い行は折り返す */
+#start-screen .menu__label { line-height: 1.35; }
+#start-screen .menu__desc,
+#start-screen .menu__note,
+#start-screen .menu__hint { line-height: 1.5; }
+
+/* --- タップ領域を44px以上に（第3部 3.4）---
+   既存の --tap:122px は 320px 端末では 36px にしかならない
+   （#stage を 0.296 倍で表示するため）。メニュー配下だけ引き上げる。
+     149px * 0.296 ≒ 44px  … 主要ボタン
+     128px * 0.296 ≒ 38px  … 並べて出す絞り込みなど
+   盤面側の --tap は変更しない（カード操作の当たり判定に関わるため）。 */
+#start-screen {
+  --tap: 149px;
+  --tap-dense: 128px;
+}

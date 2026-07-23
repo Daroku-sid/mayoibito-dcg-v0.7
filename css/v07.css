@@ -43,6 +43,9 @@
   /* 将来、画面タイトルや大見出しだけ装飾フォントへ差し替えられるよう
      変数に分離しておきます（第3部 3.3）。v0.7 では基本フォントのまま。 */
   --v7-font-title: inherit;
+
+  /* タップ領域の下限（第3部 3.4：44〜48px以上） */
+  --v7-tap-min: 44px;
 }
 
 /* =====================================================================
@@ -80,8 +83,30 @@
   -webkit-touch-callout: none;
 }
 
-/* v0.7 の器を隠す（既存機能へ入るとき。Stage 4 で使用） */
+/* v0.7 の器を隠す（既存機能へ入るとき。Stage 4 で使用）
+   ※ 既存 UI は body 直下の #viewport（#v7-root の兄弟）にある。
+     #v7-root は position:fixed / z-index:1000 で全面を覆うので、
+     これを隠すと下の既存画面がそのまま現れる。 */
 .v7-root.v7-hidden { display: none; }
+
+/* v0.7 ↔ 既存機能の行き来で使う暗転幕（Stage 4）
+   ---------------------------------------------------------------------
+   ふだんの画面遷移は #v7-root の中の .v7-wipe を使うが、
+   既存機能へ渡るときは #v7-root ごと隠すため、その幕では覆えない。
+   そこで body 直下に、両方より前面（z:3000）の幕を1枚だけ置く。 */
+.v7-xfade {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s linear;
+}
+.v7-xfade.v7-on {
+  opacity: 1;
+  pointer-events: auto;   /* 暗転中は入力を受けない */
+}
 
 /* =====================================================================
    18. アプリシェル：9:16 をたもって中央へ収める
@@ -115,6 +140,24 @@
      例: 160px の要素 → calc(160 * var(--u))。全端末で比率が保たれる。 */
   container-type: inline-size;
   --u: calc(100cqw / 1080);
+
+  /* =====================================================================
+     文字サイズ（第3部 3.3・Stage 5 で実寸化）
+     ---------------------------------------------------------------------
+     位置やパネルの寸法は 1080 幅基準（--u）で決めているが、実際の表示幅は
+     320〜480px なので、文字まで --u に比例させると 7〜13px まで縮み、
+     仕様の下限（本文14 / ボタン15 / パネルタイトル16 / 画面タイトル18 /
+     補足12）を大きく割り込んでしまう。
+     そこで文字だけ --u から切り離し、clamp() で 320〜480px の間を
+     滑らかに変化させる（仕様 3.3 の指定どおり）。
+     100cqw は .v7-shell の幅（＝実際の表示幅）を指す。
+     ===================================================================== */
+  --v7-fs-caption: clamp(12px, 3.2cqw, 14px);   /* 補足・日付・カテゴリー（下限12） */
+  --v7-fs-body:    clamp(14px, 3.7cqw, 16px);   /* 通常本文（下限14） */
+  --v7-fs-button:  clamp(15px, 4.0cqw, 17px);   /* ボタン文字（下限15） */
+  --v7-fs-panel:   clamp(16px, 4.4cqw, 19px);   /* パネルタイトル（下限16） */
+  --v7-fs-title:   clamp(18px, 5.0cqw, 22px);   /* 画面タイトル（下限18） */
+  --v7-fs-hero:    clamp(20px, 5.8cqw, 26px);   /* 大パネル・強調見出し */
   /* ラフのパネル角丸は 30px（1080基準）。実寸連動で使う。 */
   --v7-panel-radius: calc(30 * var(--u));
 }
@@ -144,15 +187,23 @@
   position: absolute;
   inset: 0;
   background: #000;
-  z-index: 10;
+  z-index: 50;
   display: flex;
   align-items: flex-end;
   justify-content: flex-end;
+  opacity: 1;
   /* セーフエリアを考慮して配置（4.1） */
   padding: env(safe-area-inset-top, 0px)
            calc(env(safe-area-inset-right, 0px) + 22px)
            calc(env(safe-area-inset-bottom, 0px) + 20px)
            env(safe-area-inset-left, 0px);
+}
+/* 読み込み終了：暗転（黒画面）を通常より少しゆっくり晴らしてホームへ（4.3の演出）。
+   ローディング画面そのものを 0.7秒かけてフェードアウトさせ、下のハブを見せる。 */
+.v7-loading--fade {
+  opacity: 0;
+  transition: opacity 0.7s ease-out;
+  pointer-events: none;
 }
 
 .v7-loading__text {
@@ -393,8 +444,24 @@
   background-position: center top;
   background-repeat: no-repeat;
   opacity: 0;
-  transition: opacity 0.5s ease;          /* 0.5秒クロスフェード（5.4） */
+  /* ★入れ替えは暗幕の裏（真っ暗なとき）で行うので、絵そのものは
+     瞬間で切り替える。ここに transition を入れると、暗幕が晴れる
+     1秒のあいだ前の絵と次の絵が重なって二重に見えてしまう。
+     見た目の変化は .v7-art__veil だけが担う。 */
+  transition: none;
 }
+/* 切り替えの暗転幕。一枚絵の上・グラデーションより下に敷き、
+   イラスト部分だけを暗くする（UIや下部パネルには掛からない）。 */
+.v7-art__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;                             /* 絵のすぐ上・グラデーション(2)の下 */
+  background: var(--v7-color-bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s ease-in-out;
+}
+.v7-art__veil.v7-on { opacity: 1; }
 .v7-art__img.is-front { opacity: 1; }
 /* 上下を少し沈めて、重なる文字を読みやすく（6.1 (2)） */
 .v7-art__grad {
@@ -456,13 +523,13 @@
   overflow: hidden;
 }
 .v7-profile__name {
-  font-size: calc(40 * var(--u));
+  font-size: var(--v7-fs-panel);
   font-weight: 700; color: var(--v7-color-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 100%; line-height: 1.1;
 }
 .v7-profile__level {
-  font-size: calc(28 * var(--u));
+  font-size: var(--v7-fs-caption);
   color: var(--v7-color-text-muted); line-height: 1.1;
 }
 /* アイコン 160×160、左上(20,20)→プロフィール内相対(0,0)。ネームパネルの上に重ねる */
@@ -484,7 +551,7 @@
   left: calc(180 * var(--u));
   top: calc(130 * var(--u));
   max-width: calc(340 * var(--u));
-  font-size: calc(30 * var(--u));
+  font-size: var(--v7-fs-caption);
   color: var(--v7-color-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-shadow: 0 1px 3px rgba(0,0,0,0.8);
@@ -501,7 +568,8 @@
 .v7-cur {
   position: relative;
   width: calc(270 * var(--u));
-  height: calc(70 * var(--u));
+  /* 補助操作だが押しやすさのため36pxを下限にする（第3部 3.4） */
+  height: max(calc(70 * var(--u)), 36px);
   display: flex; align-items: center; gap: calc(10 * var(--u));
   padding: 0 calc(56 * var(--u)) 0 calc(16 * var(--u));  /* 右は+表示ぶん */
   box-sizing: border-box;
@@ -509,7 +577,7 @@
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
   color: var(--v7-color-text);
-  font-size: calc(30 * var(--u));
+  font-size: var(--v7-fs-body);
   cursor: pointer;
 }
 .v7-cur__icon { width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; flex: 0 0 auto; }
@@ -526,7 +594,7 @@
   border-radius: calc(8 * var(--u));
   border: 1px solid var(--v7-color-border-gold);
   background: rgba(255,255,255,0.06);
-  font-size: calc(30 * var(--u)); line-height: 1;
+  font-size: var(--v7-fs-body); line-height: 1;
   color: var(--v7-color-text);
 }
 
@@ -538,7 +606,9 @@
   z-index: 15;
   left: calc(20 * var(--u));
   right: calc(20 * var(--u));
-  bottom: calc((120 + 20) * var(--u) + env(safe-area-inset-bottom, 0px));  /* ナビ120 + 間20 */
+  /* ナビの実高さ（44px下限つき）＋間20 に合わせる */
+  bottom: calc(max(calc(120 * var(--u)), var(--v7-tap-min)) + calc(20 * var(--u))
+               + env(safe-area-inset-bottom, 0px));
   height: calc(548 * var(--u));
   overflow: hidden;
 }
@@ -557,7 +627,10 @@
   position: absolute;
   z-index: 25;
   left: 0; right: 0; bottom: 0;
-  height: calc(120 * var(--u) + env(safe-area-inset-bottom, 0px));
+  /* タップ領域の下限44pxを保証する（第3部 3.4）。
+     1080基準の120px相当は 320〜480px 幅では 35〜53px にしかならないため、
+     max() で下限を敷く。 */
+  height: calc(max(calc(120 * var(--u)), var(--v7-tap-min)) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);  /* ホームバーを避ける */
   box-sizing: border-box;
   display: flex;
@@ -579,7 +652,7 @@
 }
 .v7-nav__icon { width: calc(46 * var(--u)); height: calc(46 * var(--u)); display: block; }
 .v7-nav__icon svg { width: 100%; height: 100%; }
-.v7-nav__label { font-size: calc(24 * var(--u)); }
+.v7-nav__label { font-size: var(--v7-fs-caption); }
 
 /* 選択中（6.5）：紫系＋控えめな発光＋上辺の紫ライン */
 .v7-nav__item.is-on {
@@ -609,20 +682,20 @@
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);      /* 濃紺ベタ（作者確定） */
   color: var(--v7-color-text);
-  font-size: calc(38 * var(--u)); font-weight: 700;
+  font-size: var(--v7-fs-button); font-weight: 700;
   cursor: pointer;
   padding: calc(20 * var(--u));
   text-align: center;
 }
-.v7-card-panel--big { font-size: calc(46 * var(--u)); }
+.v7-card-panel--big { font-size: var(--v7-fs-panel); }
 .v7-card-panel--soon { opacity: 0.9; }
 .v7-card-panel__arrow {
   position: absolute; right: calc(20 * var(--u)); bottom: calc(16 * var(--u));
-  font-size: calc(28 * var(--u)); color: var(--v7-color-text-muted);
+  font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted);
 }
 .v7-card-panel__badge {
   position: absolute; right: calc(16 * var(--u)); top: calc(16 * var(--u));
-  font-size: calc(22 * var(--u)); padding: calc(4 * var(--u)) calc(14 * var(--u)); border-radius: calc(18 * var(--u));
+  font-size: var(--v7-fs-caption); padding: calc(4 * var(--u)) calc(14 * var(--u)); border-radius: calc(18 * var(--u));
   background: rgba(124, 41, 51, 0.5);
   border: 1px solid rgba(200, 90, 90, 0.4);
   color: #f2d6d6;
@@ -661,7 +734,7 @@
   flex: 0 0 100%;
   display: flex; align-items: center; justify-content: center;
   border: 0; background: transparent; color: var(--v7-color-text);
-  font-size: calc(36 * var(--u)); font-weight: 700; cursor: pointer;
+  font-size: var(--v7-fs-button); font-weight: 700; cursor: pointer;
   padding: 0 calc(24 * var(--u)) calc(20 * var(--u)); text-align: center;
 }
 .v7-banner__dots {
@@ -688,7 +761,7 @@
   border: 1px solid var(--v7-color-border-gold);
   background: var(--v7-color-panel);
   color: var(--v7-color-text);
-  font-size: calc(24 * var(--u)); cursor: pointer;
+  font-size: var(--v7-fs-caption); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   padding: calc(8 * var(--u)); text-align: center;
 }
@@ -713,7 +786,7 @@
 .v7-mission__tab {
   flex: 1 1 0; height: calc(80 * var(--u));
   border: 0; background: transparent; cursor: pointer;
-  color: var(--v7-color-text-muted); font-size: calc(30 * var(--u));
+  color: var(--v7-color-text-muted); font-size: var(--v7-fs-body);
   position: relative;
 }
 .v7-mission__tab + .v7-mission__tab::before {
@@ -735,22 +808,334 @@
   display: flex; align-items: center; justify-content: space-between; gap: calc(16 * var(--u));
   padding: calc(20 * var(--u)) calc(4 * var(--u));
   border-bottom: 1px solid rgba(154, 133, 89, 0.14);
-  font-size: calc(30 * var(--u));
+  font-size: var(--v7-fs-body);
 }
 .v7-mission__row[data-state="done"] { opacity: 0.55; }
 .v7-mission__text { flex: 1 1 auto; }
 .v7-mission__right { flex: 0 0 auto; }
-.v7-mission__prog { font-size: calc(28 * var(--u)); color: var(--v7-color-text-muted); font-variant-numeric: tabular-nums; }
-.v7-mission__done { font-size: calc(26 * var(--u)); color: var(--v7-color-text-muted); }
+.v7-mission__prog { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); font-variant-numeric: tabular-nums; }
+.v7-mission__done { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); }
 .v7-mission__claim {
   min-height: calc(56 * var(--u)); padding: calc(6 * var(--u)) calc(24 * var(--u));
   border-radius: calc(24 * var(--u));
   border: 1px solid var(--v7-color-accent);
   background: var(--v7-color-accent-soft);
-  color: #d9c9ff; font-size: calc(28 * var(--u)); cursor: pointer;
+  color: #d9c9ff; font-size: var(--v7-fs-caption); cursor: pointer;
 }
 
-/* 高さ700px未満のコンパクト（18.2）。ハブの詰めを1段階。 */
+/* =====================================================================
+   個別画面（Stage 3・第12〜17部）
+   ---------------------------------------------------------------------
+   ハブ(z:10)より上、暗転(z:60)より下に敷く。これで遷移の暗転が
+   個別画面の上にかぶさり、暗転中に中身を差し替えられる。
+   ダイアログ(z:70)は個別画面の上に出る。
+   ===================================================================== */
+.v7-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--v7-color-bg);
+}
+
+/* 共通固定ヘッダー（15.1）。上部セーフエリアを含めて固定。 */
+.v7-screen__header {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: calc(12 * var(--u));
+  /* 戻るボタン（44px下限）が収まる高さを保証する */
+  height: max(calc(120 * var(--u)), calc(var(--v7-tap-min) + 12px));
+  padding: 0 calc(20 * var(--u));
+  padding-top: env(safe-area-inset-top, 0px);
+  box-sizing: content-box;
+  background: var(--v7-color-panel);
+  border-bottom: 1px solid rgba(154, 133, 89, 0.28);
+}
+.v7-screen__back {
+  flex: 0 0 auto;
+  /* タップ下限44pxを保証（第3部 3.4） */
+  width: max(calc(84 * var(--u)), var(--v7-tap-min));
+  height: max(calc(84 * var(--u)), var(--v7-tap-min));
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent; cursor: pointer;
+  color: var(--v7-color-text);
+  border-radius: 50%;
+}
+.v7-screen__back:active { background: rgba(255,255,255,0.08); }
+.v7-screen__back svg { width: calc(48 * var(--u)); height: calc(48 * var(--u)); }
+.v7-screen__title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--v7-fs-title);
+  font-weight: 700;
+  color: var(--v7-color-text);
+  font-family: var(--v7-font-title);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v7-screen__right { flex: 0 0 auto; display: flex; align-items: center; gap: calc(12 * var(--u)); }
+.v7-screen__rightbtn {
+  min-height: calc(72 * var(--u));
+  padding: calc(8 * var(--u)) calc(28 * var(--u));
+  border-radius: var(--v7-radius-medium);
+  border: 1px solid var(--v7-color-border-gold);
+  background: var(--v7-color-accent-soft);
+  color: var(--v7-color-text);
+  font-size: var(--v7-fs-button); cursor: pointer;
+}
+
+/* 個別画面の通知アンカー（ヘッダー直下：16.3）。実体は共通トーストが担う。 */
+.v7-screen__toast { position: absolute; left: 0; right: 0; top: 0; height: 0; }
+
+/* スクロールする本文（ヘッダー下だけ動く：15.1） */
+.v7-screen__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: calc(28 * var(--u)) calc(28 * var(--u));
+  padding-bottom: calc(40 * var(--u) + env(safe-area-inset-bottom, 0px));
+}
+.v7-screen__section {
+  font-size: var(--v7-fs-caption);
+  color: var(--v7-color-text-muted);
+  letter-spacing: 0.04em;
+  margin: calc(28 * var(--u)) 0 calc(14 * var(--u));
+}
+.v7-screen__section:first-child { margin-top: 0; }
+.v7-screen__note {
+  margin: calc(24 * var(--u)) 0 0;
+  font-size: var(--v7-fs-caption);
+  line-height: 1.6;
+  color: var(--v7-color-text-muted);
+}
+
+/* 横長リスト項目（設定ハブ・ヘルプ：14.1/14.2） */
+.v7-listrow {
+  width: 100%;
+  display: flex; align-items: center; gap: calc(16 * var(--u));
+  text-align: left;
+  padding: calc(24 * var(--u)) calc(28 * var(--u));
+  margin-bottom: calc(16 * var(--u));
+  border-radius: var(--v7-panel-radius);
+  border: 1px solid rgba(154, 133, 89, 0.28);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text);
+  cursor: pointer;
+}
+.v7-listrow:active { filter: brightness(1.12); }
+.v7-listrow__main { flex: 1 1 auto; display: flex; flex-direction: column; gap: calc(6 * var(--u)); min-width: 0; }
+.v7-listrow__name { font-size: var(--v7-fs-body); font-weight: 600; }
+.v7-listrow__desc { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); line-height: 1.4; }
+.v7-listrow__arrow { flex: 0 0 auto; font-size: var(--v7-fs-panel); color: var(--v7-color-text-muted); }
+.v7-listrow__soon {
+  flex: 0 0 auto;
+  font-size: var(--v7-fs-caption);
+  padding: calc(4 * var(--u)) calc(16 * var(--u));
+  border-radius: calc(20 * var(--u));
+  border: 1px solid var(--v7-color-border-gold);
+  color: var(--v7-color-text-muted);
+}
+/* 準備中の設定は通常の明度で表示（14.1：暗くしない） */
+
+/* アコーディオン（用語集・FAQ：14.3/14.4） */
+.v7-acc__item {
+  border-radius: var(--v7-panel-radius);
+  border: 1px solid rgba(154, 133, 89, 0.28);
+  background: var(--v7-color-panel);
+  margin-bottom: calc(14 * var(--u));
+  overflow: hidden;
+}
+.v7-acc__head {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: calc(16 * var(--u));
+  text-align: left;
+  padding: calc(24 * var(--u)) calc(28 * var(--u));
+  border: none; background: transparent; cursor: pointer;
+  color: var(--v7-color-text);
+}
+.v7-acc__head:active { background: rgba(255,255,255,0.05); }
+.v7-acc__term { flex: 1 1 auto; font-size: var(--v7-fs-body); font-weight: 600; }
+.v7-acc__mark { flex: 0 0 auto; font-size: var(--v7-fs-panel); color: var(--v7-color-text-muted); line-height: 1; }
+.v7-acc__panel {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+}
+.v7-acc__desc {
+  padding: 0 calc(28 * var(--u)) calc(26 * var(--u));
+  font-size: var(--v7-fs-body);
+  line-height: 1.65;
+  color: var(--v7-color-text-muted);
+  white-space: pre-wrap;
+}
+
+/* プロフィール（第12部） */
+.v7-prof {
+  display: flex; flex-direction: column; align-items: center;
+  padding: calc(24 * var(--u)) 0 calc(30 * var(--u));
+}
+.v7-prof__icon {
+  width: calc(220 * var(--u)); height: calc(220 * var(--u));
+  border-radius: 50%;
+  background: #2a3350;
+  border: 2px solid var(--v7-color-border-gold);
+  display: flex; align-items: center; justify-content: center;
+  color: #5b6b95;
+  overflow: hidden;
+}
+.v7-prof__icon svg { width: calc(150 * var(--u)); height: calc(150 * var(--u)); }
+.v7-prof__name { margin-top: calc(20 * var(--u)); font-size: var(--v7-fs-title); font-weight: 700; color: var(--v7-color-text); }
+.v7-prof__title { margin-top: calc(8 * var(--u)); font-size: var(--v7-fs-body); color: #d9c9ff; }
+.v7-prof__idrow {
+  margin-top: calc(28 * var(--u));
+  display: flex; align-items: center; gap: calc(14 * var(--u));
+  padding: calc(16 * var(--u)) calc(24 * var(--u));
+  border-radius: var(--v7-radius-medium);
+  border: 1px solid rgba(154, 133, 89, 0.28);
+  background: var(--v7-color-panel);
+  max-width: 100%;
+}
+.v7-prof__idlabel { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); flex: 0 0 auto; }
+.v7-prof__idval {
+  font-size: var(--v7-fs-body); font-weight: 600; letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums; color: var(--v7-color-text);
+  -webkit-user-select: all; user-select: all;
+}
+.v7-prof__copy {
+  flex: 0 0 auto;
+  min-height: calc(64 * var(--u));
+  padding: calc(6 * var(--u)) calc(22 * var(--u));
+  border-radius: calc(20 * var(--u));
+  border: 1px solid var(--v7-color-accent);
+  background: var(--v7-color-accent-soft);
+  color: #d9c9ff; font-size: var(--v7-fs-caption); cursor: pointer;
+}
+.v7-prof__fav {
+  width: 100%;
+  display: flex; align-items: center; gap: calc(20 * var(--u));
+  text-align: left;
+  padding: calc(20 * var(--u));
+  border-radius: var(--v7-panel-radius);
+  border: 1px solid rgba(154, 133, 89, 0.28);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text);
+  cursor: pointer;
+}
+.v7-prof__favimg {
+  flex: 0 0 auto;
+  width: calc(120 * var(--u)); height: calc(168 * var(--u));
+  border-radius: calc(12 * var(--u));
+  background: linear-gradient(160deg, #2a2140, #14101f);
+  border: 1px solid var(--v7-color-border-gold);
+}
+.v7-prof__favname { font-size: var(--v7-fs-body); font-weight: 600; }
+
+/* お知らせ（第13部） */
+.v7-news__row {
+  width: 100%;
+  display: flex; flex-direction: column; gap: calc(10 * var(--u));
+  text-align: left;
+  padding: calc(24 * var(--u)) calc(24 * var(--u));
+  margin-bottom: calc(14 * var(--u));
+  border-radius: var(--v7-panel-radius);
+  border: 1px solid rgba(154, 133, 89, 0.28);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text);
+  cursor: pointer;
+}
+.v7-news__row:active { filter: brightness(1.12); }
+.v7-news__meta { display: flex; align-items: center; gap: calc(14 * var(--u)); }
+.v7-news__date { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); font-variant-numeric: tabular-nums; }
+.v7-news__cat {
+  font-size: var(--v7-fs-caption);
+  padding: calc(3 * var(--u)) calc(14 * var(--u));
+  border-radius: calc(16 * var(--u));
+  color: #f2eee4;
+}
+.v7-news__cat--update    { background: rgba(118, 80, 200, 0.5); }
+.v7-news__cat--howto     { background: rgba(60, 130, 110, 0.5); }
+.v7-news__cat--important { background: rgba(150, 60, 60, 0.55); }
+.v7-news__cat--dev       { background: rgba(80, 100, 150, 0.5); }
+.v7-news__title { font-size: var(--v7-fs-body); font-weight: 600; line-height: 1.4; }
+
+.v7-newsdet__title { margin: 0 0 calc(14 * var(--u)); font-size: var(--v7-fs-title); font-weight: 700; color: var(--v7-color-text); line-height: 1.35; }
+.v7-newsdet__meta { display: flex; align-items: center; gap: calc(14 * var(--u)); margin-bottom: calc(24 * var(--u)); }
+.v7-newsdet__date { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); }
+.v7-newsdet__body { font-size: var(--v7-fs-body); line-height: 1.7; color: var(--v7-color-text); white-space: pre-wrap; }
+
+/* 選択画面のタイル（第9部）。準備中は暗め＋彩度落ち＋バッジ（9.3） */
+.v7-lr--screen { height: calc(560 * var(--u)); }
+.v7-tile {
+  position: relative;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(20 * var(--u));
+  border-radius: var(--v7-panel-radius);
+  border: 1px solid rgba(154, 133, 89, 0.3);
+  background: var(--v7-color-panel);
+  color: var(--v7-color-text);
+  font-size: var(--v7-fs-button); font-weight: 600;
+  cursor: pointer;
+}
+.v7-tile:active { filter: brightness(1.12); }
+.v7-tile--soon { filter: saturate(0.55) brightness(0.82); }
+.v7-tile--soon:active { filter: saturate(0.55) brightness(0.95); }
+.v7-tile__label { text-align: center; }
+.v7-tile__badge {
+  position: absolute; top: calc(14 * var(--u)); right: calc(14 * var(--u));
+  font-size: var(--v7-fs-caption);
+  padding: calc(3 * var(--u)) calc(14 * var(--u));
+  border-radius: calc(16 * var(--u));
+  border: 1px solid var(--v7-color-border-gold);
+  color: var(--v7-color-text-muted);
+  background: rgba(0,0,0,0.35);
+}
+/* 選択画面グリッド内のタイルは高さを持たせる */
+.v7-grid .v7-tile { min-height: calc(230 * var(--u)); }
+
+/* クレジット（第14部 14.5） */
+.v7-credits__game { font-size: var(--v7-fs-title); font-weight: 700; text-align: center; margin-bottom: calc(30 * var(--u)); color: var(--v7-color-text); }
+.v7-credits__row {
+  display: flex; flex-direction: column; gap: calc(4 * var(--u));
+  padding: calc(18 * var(--u)) calc(8 * var(--u));
+  border-bottom: 1px solid rgba(154, 133, 89, 0.16);
+}
+.v7-credits__role { font-size: var(--v7-fs-caption); color: var(--v7-color-text-muted); }
+.v7-credits__name { font-size: var(--v7-fs-body); color: var(--v7-color-text); }
+
+/* =====================================================================
+   高さ700px未満のコンパクト表示（第18部 18.2）
+   ---------------------------------------------------------------------
+   縮めるもの：上部プレイヤー情報・パネル間余白・一枚絵の露出・ナビの余白
+   維持するもの：文字サイズ下限・44〜48pxのタップ領域・ミッション枠の操作性
+   コンパクトは1段階のみ。JSでの計測はせず、CSSの高さクエリだけで行う。
+   ===================================================================== */
+@media (max-height: 699px) {
+  /* 上部プレイヤー情報：高さを詰める（文字の下限は変えない） */
+  .v7-profile { height: calc(200 * var(--u)); }
+  .v7-profile__title { top: calc(120 * var(--u)); }
+
+  /* 通貨表示：縦の間隔を詰める */
+  .v7-currency { gap: calc(12 * var(--u)); }
+
+  /* パネル領域：ナビとの間隔を詰めて、そのぶん本体を広く使う */
+  .v7-panels {
+    bottom: calc(max(calc(120 * var(--u)), var(--v7-tap-min)) + calc(10 * var(--u))
+                 + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* メインナビ：高さの下限（44px）は保ったまま、内側の余白だけ詰める */
+  .v7-nav__item { gap: calc(2 * var(--u)); }
+  .v7-nav__icon { width: calc(38 * var(--u)); height: calc(38 * var(--u)); }
+
+  /* 個別画面：ヘッダーと本文の余白を1段階詰める（下限は維持） */
+  .v7-screen__body { padding: calc(20 * var(--u)) calc(24 * var(--u)); }
+  .v7-screen__section { margin: calc(18 * var(--u)) 0 calc(10 * var(--u)); }
+  .v7-listrow { padding: calc(18 * var(--u)) calc(24 * var(--u)); margin-bottom: calc(12 * var(--u)); }
+}
 /* =====================================================================
    23. 動きを減らす設定（prefers-reduced-motion）
    ---------------------------------------------------------------------
@@ -761,8 +1146,10 @@
 @media (prefers-reduced-motion: reduce) {
   .v7-loading__text span { animation: none; }
   .v7-wipe { transition-duration: 0.08s; }
+  .v7-xfade { transition-duration: 0.08s; }
+  .v7-loading--fade { transition-duration: 0.15s; }
   .v7-toast { transition-duration: 0.08s; }
-  .v7-art__img { transition-duration: 0.12s; }
+  .v7-art__veil { transition-duration: 0.12s; }
   .v7-slide-out-left, .v7-slide-out-right, .v7-slide-center { transition-duration: 0.12s; }
   .v7-banner__track { transition-duration: 0.12s !important; }
   .v7-banner__dot { transition-duration: 0.12s; }
