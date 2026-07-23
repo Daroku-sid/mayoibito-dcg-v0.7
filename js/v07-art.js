@@ -16,12 +16,15 @@
 const V7Art = {
 
   AUTO_MS: 10000,     // 10秒（5.4）
-  FADE_MS: 500,       // 0.5秒クロスフェード（5.4）
+  FADE_MS: 1000,      // 暗転の片道1秒（暗くなる→明るくなる）
+  HOLD_MS: 1000,      // 真っ暗なまま留まる時間（1秒）。ここで絵を入れ替える
+                      // → 全体で 1 + 1 + 1 = 3秒の切り替えになる
 
   _list: [],          // enabled かつ 読み込み成功したものだけ
   _idx: 0,            // いま表示中の _list 内の位置
   _slotA: null,
   _slotB: null,
+  _veil: null,        // 切り替えの暗転幕（イラスト部分だけを暗くする）
   _showingA: true,    // いまAとBどちらが前面か
   _fading: false,
   _paused: false,
@@ -30,6 +33,7 @@ const V7Art = {
   init: function () {
     this._slotA = document.getElementById('v7-art-a');
     this._slotB = document.getElementById('v7-art-b');
+    this._veil  = document.getElementById('v7-art-veil');
 
     // 使う候補（enabled のみ）。読み込み可否はこのあと確かめる。
     const enabled = (typeof V7_HOME_ART !== 'undefined' ? V7_HOME_ART : [])
@@ -119,6 +123,14 @@ const V7Art = {
   pause: function () {
     this._paused = true;
     V7Timers.clear('art-auto');
+    /* 暗転の途中で画面を離れると、暗幕が出たまま・_fading が立ったままで
+       固まり、戻ってきたときに切り替えが効かなくなる。
+       中断して見た目と状態を元に戻しておく。 */
+    V7Timers.clear('art-veil-in');
+    V7Timers.clear('art-veil-hold');
+    V7Timers.clear('art-veil-out');
+    if (this._veil) this._veil.classList.remove('v7-on');
+    this._fading = false;
   },
 
   _scheduleAuto: function () {
@@ -143,27 +155,64 @@ const V7Art = {
     this._scheduleAuto();                        // 手動後は10秒リセット（5.5）
   },
 
+  /* 一枚絵の切り替え（作者指定：クロスフェードではなく暗転）
+     -------------------------------------------------------------
+     イラスト部分だけを 1秒かけて暗くし、暗くなりきったところで絵を
+     入れ替え、また 1秒かけて明るくする（往復2秒）。
+     暗幕は一枚絵レイヤーの中にあるので、上部の情報や下部のパネルは
+     暗くならない。 */
   _goToNext: function () {
     if (this._list.length < 2) return;
     const next = (this._idx + 1) % this._list.length;
-    const from = this._showingA ? this._slotA : this._slotB;
-    const to = this._showingA ? this._slotB : this._slotA;
-
-    // 次の絵を背面スロットに用意（すでに事前読み込み済み）
-    this._paint(to, this._list[next]);
-
-    // クロスフェード（5.4）。前面/背面を入れ替える
-    this._fading = true;
-    void to.offsetWidth;
-    to.classList.add('is-front');
-    from.classList.remove('is-front');
-
     const self = this;
-    V7Timers.set('art-fade', function () {
-      self._fading = false;
-      self._showingA = !self._showingA;
+
+    this._fading = true;
+
+    // 暗幕が無い環境（テスト等）では、暗転なしで即差し替える
+    if (!this._veil) {
+      this._paint(this._showingA ? this._slotB : this._slotA, this._list[next]);
+      this._swapSlots();
+      this._idx = next;
+      this._fading = false;
+      return;
+    }
+
+    // (1) 1秒かけて暗くする
+    this._veil.classList.add('v7-on');
+
+    V7Timers.set('art-veil-in', function () {
+      // (2) 暗くなりきったところで絵を入れ替える（見えないので瞬間でよい）
+      const to = self._showingA ? self._slotB : self._slotA;
+      self._paint(to, self._list[next]);
+      to.classList.add('is-front');
+      (self._showingA ? self._slotA : self._slotB).classList.remove('is-front');
+      self._swapSlots();
       self._idx = next;
+
+      /* (3) 真っ暗なまま HOLD_MS ぶん留まってから明るくする。
+         暗転しきってすぐ明転を始めると忙しなく見えるため、
+         ひと呼吸おく。差し替えはこの暗いあいだに済ませてある。 */
+      const clear = function () {
+        V7Timers.set('art-veil-hold', function () {
+          self._veil.classList.remove('v7-on');
+          V7Timers.set('art-veil-out', function () {
+            self._fading = false;
+          }, self.FADE_MS);
+        }, self.HOLD_MS);
+      };
+      if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(clear);
+        });
+      } else {
+        clear();
+      }
     }, this.FADE_MS);
+  },
+
+  /* 前面スロットの入れ替えだけを行う */
+  _swapSlots: function () {
+    this._showingA = !this._showingA;
   },
 
   currentArtId: function () {

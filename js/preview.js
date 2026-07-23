@@ -1904,6 +1904,11 @@ function quitWatching() {
   updateWatchBar();
   // CPU観戦は開発者用モードの下にあるので、戻るときも同じ道すじを積む
   // 観戦の設定まで一気に戻ります。幕は最後に1回だけで足ります。
+  // ★v0.7：ハブ経由で入っていた場合は v0.7 ハブの入口タブへ戻す。
+  if (typeof window !== 'undefined' && typeof window.__v7ReturnFromLegacy === 'function'
+      && window.__v7ReturnFromLegacy()) {
+    return;
+  }
   Screens.reset('mode');
   Screens.goNow('battle-mode');
   Screens.goNow('dev-mode');
@@ -3672,6 +3677,12 @@ function backToSetupScreen(setupName) {
   // スタート画面まで戻すと、もう一度遊ぶのに毎回3タップかかるため。
   // 対戦から戻るときは、続けて2〜3画面ぶん進みます。
   // そのたびに幕を出すと待たされるので、ここでは演出なしで積みます。
+  // ★v0.7：ハブ経由で入っていた場合は、既存メニューではなく
+  //   v0.7 ハブの入口タブへ戻す（後片づけは上で完了済み）。
+  if (typeof window !== 'undefined' && typeof window.__v7ReturnFromLegacy === 'function'
+      && window.__v7ReturnFromLegacy()) {
+    return;
+  }
   Screens.reset('mode');
   Screens.goNow('battle-mode');
   if (setupName) Screens.goNow(setupName);

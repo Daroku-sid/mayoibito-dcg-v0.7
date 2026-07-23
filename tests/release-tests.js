@@ -24,14 +24,15 @@ console.log('■ 版の番号がそろっている（仕様書 31・32.9）');
   const ver = fs.readFileSync('js/version.js', 'utf8').match(/APP_VERSION = '([\d.]+)'/)[1];
   check('version.js に版がある', !!ver, ver);
 
-  /* v0.7 では、既存 v0.6.10 のファイルは ?v=0.6.10 のまま据え置き、
-     v0.7 で新設した器のファイル（v07.css / v07-save.js / v07-shell.js）
-     だけ ?v=0.7.0 を付けています。既存にバージョンの一括変更を掛けると
-     既存を触ることになるため、2系統の併存を正しい状態とします。 */
-  const V7_VER = '0.7.0';
+  /* v0.7 では 2系統が併存します。
+       ?v=0.7.0  … v0.7 で新設した器＋v0.7 で中身を変えた既存ファイル
+       ?v=0.6.10 … v0.7 で手を触れていない既存ファイル（据え置き）
+     据え置きは「変えていないから古い版のまま」であって、ずれではありません。
+     中身を変えたファイルが据え置きのままだと、古いものを掴んだままになります。 */
+  const OLD_VER = '0.6.10';
   const tags = html.match(/\?v=([\d.]+)/g) || [];
-  const bad = tags.filter(t => t !== '?v=' + ver && t !== '?v=' + V7_VER);
-  check('読み込みの ?v= が既存版か v0.7 版のどちらか', tags.length > 0 && bad.length === 0,
+  const bad = tags.filter(t => t !== '?v=' + ver && t !== '?v=' + OLD_VER);
+  check('読み込みの ?v= が現在の版か据え置き版のどちらか', tags.length > 0 && bad.length === 0,
     tags.length + '個 / ずれ' + bad.length + '個');
 
   check('CSSにも付いている', /href="css\/layout\.css\?v=/.test(html));

@@ -113,7 +113,7 @@ function boot(opts) {
   const clock = makeClock();
   const els = {};
   const need = [
-    'v7-art-a', 'v7-art-b', 'v7-art-tap',
+    'v7-art-a', 'v7-art-b', 'v7-art-tap', 'v7-art-veil',
     'v7-profile', 'v7-profile-name', 'v7-profile-title',
     'v7-cur-soft', 'v7-cur-premium',
     'v7-panels', 'v7-panel-slider', 'v7-nav',
@@ -157,6 +157,7 @@ function boot(opts) {
   load('v07-art.js');
   load('v07-home.js');
   load('v07-panels.js');
+  load('v07-bridge.js');
   load('v07-hub.js');
   const get = n => vm.runInContext(n, ctx);
   return {
@@ -238,13 +239,80 @@ console.log('■ 一枚絵：自動・手動・タイマー');
   // 10秒未満では変わらない
   H.clock.tick(9000);
   check('10秒未満では自動で変わらない（フェード未開始）', H.V7Art._fading === false);
-  // 10秒で切替開始
+  // 10秒で切替開始（暗転が始まる）
   H.clock.tick(1000);
-  check('10秒でクロスフェードが始まる', H.V7Art._fading === true);
-  H.clock.tick(500);
-  check('0.5秒でフェード完了', H.V7Art._fading === false);
-  check('表示中の絵が入れ替わった', H.V7Art.currentArtId() !== before,
-    before + ' → ' + H.V7Art.currentArtId());
+  check('10秒で暗転が始まる', H.V7Art._fading === true);
+  check('イラスト部分の暗幕が出る', H.els['v7-art-veil']._cls.has('v7-on'));
+  // 片道1秒で暗くなりきり、その時点で絵が入れ替わる
+  H.clock.tick(1000);
+  check('1秒後に絵が入れ替わっている（暗いうちに差し替え）',
+    H.V7Art.currentArtId() !== before, before + ' → ' + H.V7Art.currentArtId());
+  check('入れ替え直後はまだ真っ暗なまま（ひと呼吸おく）',
+    H.els['v7-art-veil']._cls.has('v7-on'));
+  // 真っ暗なまま1秒とどまってから明転が始まる
+  H.clock.tick(1000);
+  check('1秒とどまってから明るくなりはじめる',
+    !H.els['v7-art-veil']._cls.has('v7-on'));
+  check('まだ演出中（明転が残っている）', H.V7Art._fading === true);
+  // さらに1秒で明転が終わる（暗転1+静止1+明転1=3秒）
+  H.clock.tick(1000);
+  check('全体3秒で演出が終わる', H.V7Art._fading === false);
+}
+
+console.log('■ 一枚絵：切り替えは暗転だけが動く（絵が二重に見えない）');
+{
+  const css = fs.readFileSync('css/v07.css', 'utf8');
+  const img = (css.match(/\.v7-art__img\s*\{([^}]*)\}/) || ['', ''])[1];
+  const veil = (css.match(/\.v7-art__veil\s*\{([^}]*)\}/) || ['', ''])[1];
+
+  // 絵そのものに transition があると、暗幕が晴れる間に
+  // 前の絵と次の絵が重なって二重に見える
+  check('絵そのものはアニメーションしない（transition: none）',
+    /transition:\s*none/.test(img));
+  check('絵に opacity のアニメーションが残っていない',
+    !/transition[^;]*opacity/.test(img));
+
+  // 見た目の変化は暗幕だけが担う
+  check('暗幕が opacity でアニメーションする',
+    /transition:[^;]*opacity/.test(veil));
+  check('暗幕の片道が1秒（往復2秒）',
+    /transition:[^;]*opacity\s*1s/.test(veil));
+  check('暗幕は絵の上・グラデーションの下（z-index:1）',
+    /z-index:\s*1\b/.test(veil));
+
+  // 暗転しきってから、ひと呼吸おいて明転する
+  const art = fs.readFileSync('js/v07-art.js', 'utf8');
+  check('真っ暗なまま留まる時間が決めてある（HOLD_MS）',
+    /HOLD_MS:\s*(\d+)/.test(art), 'HOLD_MS=' + RegExp.$1 + 'ms');
+  check('留まる時間が1秒以上ある', parseInt(RegExp.$1, 10) >= 1000);
+  check('留まるためのタイマーがある', /art-veil-hold/.test(art));
+  check('中断時に留まりタイマーも片づける',
+    /clear\(['"]art-veil-hold['"]\)/.test(art));
+}
+
+
+console.log('■ 一枚絵：暗転の途中で画面を離れても固まらない');
+{
+  const H = boot();
+  initHub(H);
+  const veil = H.els['v7-art-veil'];
+
+  // 暗転を始めてから、途中でハブを離れる（他画面へ移るのと同じ）
+  H.els['v7-art-tap'].fire('click', {});
+  check('暗転が始まっている', H.V7Art._fading === true && veil._cls.has('v7-on'));
+  H.clock.tick(500);              // 暗転の途中
+  H.V7Art.pause();
+  check('離れると暗幕が片づく', !veil._cls.has('v7-on'));
+  check('演出中フラグが残らない', H.V7Art._fading === false);
+
+  // 戻ってきたあと、ふつうに切り替えられる
+  H.V7Art.resume();
+  const before = H.V7Art.currentArtId();
+  H.els['v7-art-tap'].fire('click', {});
+  H.clock.tick(1000);
+  check('戻ったあとも切り替えできる', H.V7Art.currentArtId() !== before);
+  H.clock.tick(2000);
+  check('演出が最後まで終わる', H.V7Art._fading === false);
 }
 
 console.log('■ 一枚絵：フェード中のタップ無視 / タイマー二重生成なし');
@@ -256,12 +324,11 @@ console.log('■ 一枚絵：フェード中のタップ無視 / タイマー二
   // タップで即切替＋10秒リセット
   const id0 = H.V7Art.currentArtId();
   tap.fire('click', {});
-  check('中央タップでフェードが始まる', H.V7Art._fading === true);
-  const idDuringFade = H.V7Art.currentArtId();
-  // フェード中の再タップは無視
+  check('中央タップで暗転が始まる', H.V7Art._fading === true);
+  // 演出中の再タップは無視（2回ぶん進まない）
   tap.fire('click', {});
-  H.clock.tick(500);
-  check('フェード中の再タップは無視（1回ぶんだけ進む）',
+  H.clock.tick(3000);
+  check('演出中の再タップは無視（1回ぶんだけ進む）',
     H.V7Art.currentArtId() !== id0);
 
   // 自動タイマーが重複していない（art-auto は常に1本）
@@ -388,7 +455,8 @@ console.log('■ 準備中の入口が仮ダイアログで開く');
   H.V7Hub.switchTab('shop');
   H.clock.tick(16); H.clock.tick(320);
   const slider = H.els['v7-panel-slider'];
-  const shopBtn = slider.querySelector('.v7-card-panel');
+  const shopPanel = slider.querySelector('.v7-tabpanel[data-tab="shop"]');
+  const shopBtn = shopPanel.querySelector('.v7-card-panel');
   shopBtn.fire('click', {});
   check('ショップのパネルで準備中ダイアログが開く', H.V7Dialog.isOpen());
   H.V7Dialog.close();

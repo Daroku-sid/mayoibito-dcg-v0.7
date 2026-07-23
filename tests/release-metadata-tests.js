@@ -30,7 +30,7 @@ const LABEL = version.APP_VERSION_LABEL;
 console.log('■ アプリの版');
 {
   check('APP_VERSION が読める', typeof V === 'string' && V.length > 0, V);
-  check('★APP_VERSION が 0.6.10', V === '0.6.10', V);
+  check('★APP_VERSION が 0.7.0（v0.7 リリース版）', V === '0.7.0', V);
   check('表記は v を付けた形', LABEL === 'v' + V, LABEL);
   check('数字だけでできている', /^\d+\.\d+\.\d+$/.test(V), V);
 }
@@ -79,14 +79,23 @@ console.log('\n■ 読み込みに付ける ?v= が版とそろっている');
 {
   /* 古いファイルを掴んだままにならないよう、
      読み込みごとに ?v= を付けています。 */
-  /* v0.7 では、既存 v0.6.10 のファイルは ?v=0.6.10 のまま、
-     v0.7 で新設した器のファイルだけ ?v=0.7.0 を付けます。
-     既存へバージョンの一括変更を掛けないための意図的な併存です。 */
-  const V7_VER = '0.7.0';
+  /* v0.7 では 2系統が併存します。
+       ?v=0.7.0  … v0.7 で新設した器のファイル＋v0.7 で中身を変えた既存ファイル
+       ?v=0.6.10 … v0.7 で手を触れていない既存ファイル（据え置き）
+     中身を変えたのに据え置くと、古いファイルを掴んだままになるため、
+     変更したファイルは必ず 0.7.0 側に入っている必要があります。 */
+  const OLD_VER = '0.6.10';
   const qs = [...new Set((html.match(/\?v=([\d.]+)/g) || []))];
   check('?v= が使われている', qs.length > 0, qs.join(' / '));
-  const okQs = qs.every(q => q === '?v=' + V || q === '?v=' + V7_VER);
-  check('★?v= は既存版か v0.7 版のどちらか', okQs, qs.join(' / '));
+  const okQs = qs.every(q => q === '?v=' + V || q === '?v=' + OLD_VER);
+  check('★?v= は現在の版か据え置き版のどちらか', okQs, qs.join(' / '));
+
+  /* v0.7 で中身を変えた既存ファイルが、据え置きのままになっていないか */
+  ['js/preview.js', 'css/layout.css', 'js/version.js'].forEach(function (f) {
+    const m = html.match(new RegExp(f.replace(/[.\/]/g, '\\$&') + '\\?v=([\\d.]+)'));
+    check('★' + f + ' は現在の版で読み込む（中身を変えたため）',
+      !!m && m[1] === V, m ? '?v=' + m[1] : '見つからない');
+  });
 }
 
 console.log('\n■ version.js が最初のほうで読み込まれる');

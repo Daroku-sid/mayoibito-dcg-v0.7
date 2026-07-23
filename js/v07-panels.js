@@ -55,15 +55,17 @@ const V7Panels = {
     grid.appendChild(this._panelBtn('デッキ一覧', {
       big: true, arrow: true,
       onClick: function () {
-        V7Dialog.comingSoon('デッキ一覧',
-          '既存のデッキ一覧・デッキ編集画面へつなぎます。接続は次の段階で行います。');
+        if (typeof V7Bridge !== 'undefined') {
+          V7Bridge.openLegacy({ screen: 'deck-list', entryTab: 'card' });
+        }
       },
     }));
     grid.appendChild(this._panelBtn('カード一覧', {
       big: true, arrow: true,
       onClick: function () {
-        V7Dialog.comingSoon('カード一覧',
-          '既存のカード一覧画面へつなぎます。接続は次の段階で行います。');
+        if (typeof V7Bridge !== 'undefined') {
+          V7Bridge.openLegacy({ screen: 'card-list', entryTab: 'card' });
+        }
       },
     }));
     root.appendChild(grid);
@@ -82,8 +84,7 @@ const V7Panels = {
     const left = this._panelBtn('ソロプレイ', {
       big: true,
       onClick: function () {
-        V7Dialog.comingSoon('ソロプレイ',
-          'ストーリーとソロ周回を選ぶ画面を追加予定です。現在は準備中です。');
+        if (typeof V7Screen !== 'undefined') V7Screen.open('solo');
       },
     });
     left.classList.add('v7-lr__main');
@@ -92,14 +93,12 @@ const V7Panels = {
     right.className = 'v7-lr__side';
     right.appendChild(this._panelBtn('オンライン', {
       onClick: function () {
-        V7Dialog.comingSoon('オンライン',
-          '期間限定イベント・タワー・フレンド対戦・カジュアルマッチを追加予定です。現在は準備中です。');
+        if (typeof V7Screen !== 'undefined') V7Screen.open('online');
       },
     }));
     right.appendChild(this._panelBtn('その他対戦', {
       onClick: function () {
-        V7Dialog.comingSoon('その他対戦',
-          'トレーニングモード・チュートリアル・開発者用モードへつなぐ画面を追加予定です。接続は次の段階で行います。');
+        if (typeof V7Screen !== 'undefined') V7Screen.open('otherBattle');
       },
     }));
 
@@ -156,8 +155,7 @@ const V7Panels = {
     grid.appendChild(this._panelBtn('設定', {
       big: true, arrow: true,
       onClick: function () {
-        V7Dialog.comingSoon('設定',
-          '設定ハブ（対戦・演出・音・データ管理など）を追加予定です。現在は準備中です。');
+        if (typeof V7Screen !== 'undefined') V7Screen.open('settings');
       },
     }));
     grid.appendChild(this._panelBtn('コレクション', {

@@ -259,6 +259,16 @@ const V7Shell = {
       this._els.dialogTitle, this._els.dialogBody, this._els.dialogButtons
     );
 
+    // 個別画面レイヤー（Stage 3）を shell 内に用意する
+    if (typeof V7Screen !== 'undefined' && this._els.shell) {
+      V7Screen.init(this._els.shell);
+    }
+
+    // 既存機能への橋渡し（Stage 4）を初期化する
+    if (typeof V7Bridge !== 'undefined') {
+      V7Bridge.init();
+    }
+
     // ローディング文字を1文字ずつ span で包む（ウェーブ用）
     this._buildLoadingText();
 
@@ -287,6 +297,7 @@ const V7Shell = {
       dialogButtons: g('v7-dialog-buttons'),
       toastArea: g('v7-toast-area'),
       home: g('v7-home-placeholder'),
+      shell: g('v7-shell'),
     };
   },
 
@@ -362,19 +373,35 @@ const V7Shell = {
 
   _finishLoading: function () {
     V7Timers.clear('load-timeout');
-    const loading = this._els.loading;
-    if (loading) {
-      // 黒背景から自然に戻る短いフェード（4.3）
-      loading.style.transition = 'opacity 0.35s ease';
-      loading.style.opacity = '0';
-      V7Timers.set('load-hide', function () {
-        loading.style.display = 'none';
-      }, 360);
-    }
     this._bootDone = true;
-    // Stage 2：起動後はメインハブを表示し、初期化する
-    if (this._els.home) this._els.home.classList.add('v7-on');
+
+    const loading = this._els.loading;
+    const home = this._els.home;
+
+    // 起動後はメインハブを表示し、初期化する（Stage 2）。
+    // ローディング画面がまだ手前を覆っているので、この描き込みは見えない。
+    if (home) home.classList.add('v7-on');
     if (typeof V7Hub !== 'undefined') V7Hub.init();
+
+    if (!loading) return;
+
+    // ローディング画面（黒）を、通常の暗転より少しゆっくり（0.7秒）
+    // フェードアウトさせて、下のホームを見せる（要望の演出）。
+    // トランジションを確実に発火させるため、現在の状態（opacity:1）を
+    // 1フレーム描画させてから、次フレームで晴れクラスを付ける。
+    const raf = (typeof window !== 'undefined' && window.requestAnimationFrame)
+      ? window.requestAnimationFrame.bind(window)
+      : function (fn) { return V7Timers.set('raf-fallback', fn, 16); };
+
+    raf(function () {
+      raf(function () {
+        loading.classList.add('v7-loading--fade');   // 0.7秒かけて opacity:0 へ
+        // 晴れ切ったら表示から外す（トランジション後）
+        V7Timers.set('load-hide', function () {
+          loading.style.display = 'none';
+        }, 760);
+      });
+    });
   },
 
   _showLoadingFail: function () {
@@ -388,6 +415,7 @@ const V7Shell = {
     const loading = this._els.loading;
     if (loading) {
       loading.classList.remove('v7-failed');
+      loading.classList.remove('v7-loading--fade');
       loading.style.opacity = '1';
       loading.style.display = 'flex';
     }

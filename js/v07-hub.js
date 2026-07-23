@@ -52,22 +52,24 @@ const V7Hub = {
      上部プレイヤー情報（第6部 6.2）
      ------------------------------------------------------------- */
   _renderProfile: function () {
+    this.refreshProfile();
+    const btn = document.getElementById('v7-profile');
+    if (btn) btn.onclick = function () {
+      // プレイヤー情報パネル全体をタップでプロフィールへ（第12部 12.1）
+      if (typeof V7Screen !== 'undefined') V7Screen.open('profile');
+    };
+  },
+
+  /** 上部プレイヤー情報を最新のセーブ内容で描き直す（初期化・読込後に使う） */
+  refreshProfile: function () {
     const name = document.getElementById('v7-profile-name');
     const level = document.getElementById('v7-profile-level');
     const title = document.getElementById('v7-profile-title');
     const p = (typeof V7Save !== 'undefined' && V7Save.data) ? V7Save.data.profile : null;
-    if (p) {
-      if (name) name.textContent = p.playerName || 'プレイヤー';
-      if (title) title.textContent = p.title || 'はじめての一歩';
-    }
+    if (name) name.textContent = (p && p.playerName) || 'プレイヤー';
+    if (title) title.textContent = (p && p.title) || 'はじめての一歩';
     // レベルは仕様書6.2で将来追加の余地。v0.7 では Lv.1 固定表示。
     if (level) level.textContent = 'Lv.1';
-    const btn = document.getElementById('v7-profile');
-    if (btn) btn.onclick = function () {
-      // プロフィール画面は Stage 3。ここでは仮ダイアログ。
-      V7Dialog.comingSoon('プロフィール',
-        'プレイヤー名や称号、お気に入りカードを設定できる画面を追加予定です。現在は準備中です。');
-    };
   },
 
   /* -------------------------------------------------------------
@@ -211,6 +213,30 @@ const V7Hub = {
 
   current: function () { return this._current; },
   isSwitching: function () { return this._switching; },
+
+  /* 初期化後などに、暗転なしでタブを直接切り替える（復帰用） */
+  jumpTab: function (tabId) {
+    if (tabId === this._current) { this.onHubShown(); return; }
+    this._current = tabId;
+    this._showTab(tabId, null);   // スライドなしで即表示
+    this.onHubShown();
+  },
+
+  /* 保留タブ（個別画面を閉じてハブへ戻ったとき切り替える先） */
+  _pendingTab: null,
+
+  /* メインハブ上での端末戻る（第17部 17.4）
+     ・ホーム以外のタブ → ホームへ
+     ・ホーム → ブラウザー標準（false を返して既定に委ねる） */
+  handleHubBack: function () {
+    if (this._current !== 'home') {
+      this.jumpTab('home');
+      // ホームへ戻したので、端末戻るを1段ぶん相殺しておく
+      try { window.history.pushState({ v7hub: 'home' }, ''); } catch (e) {}
+      return true;
+    }
+    return false;   // ホームでの戻るはブラウザー標準
+  },
 };
 
 /* =====================================================================

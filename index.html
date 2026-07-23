@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<!-- 版は version.js が起動時に入れます（v0.6.10）。
+<!-- 版は version.js が起動時に入れます（v0.7.0）。
        ここに直接書くと、更新のたび取り残されるためです。 -->
   <title>マヨイビト</title>
-<link rel="stylesheet" href="css/layout.css?v=0.6.10">
+<link rel="stylesheet" href="css/layout.css?v=0.7.0">
 <link rel="stylesheet" href="css/v07.css?v=0.7.0">
 </head>
 <body>
@@ -23,7 +23,7 @@
 <div id="v7-root" class="v7-root">
 
   <div class="v7-shell-wrap">
-    <div class="v7-shell">
+    <div class="v7-shell" id="v7-shell">
 
       <!-- ================= メインハブ（第6部）================= -->
       <div id="v7-home-placeholder" class="v7-layer v7-hub">
@@ -32,6 +32,8 @@
         <div class="v7-art">
           <div class="v7-art__img" id="v7-art-a"></div>
           <div class="v7-art__img" id="v7-art-b"></div>
+          <!-- 切り替えの暗転幕。イラスト部分だけを暗くして絵を入れ替える -->
+          <div class="v7-art__veil" id="v7-art-veil"></div>
           <!-- (2) 暗色グラデーション（上下を少し沈めて文字を読みやすく） -->
           <div class="v7-art__grad"></div>
           <!-- 一枚絵の中央だけタップで切り替え（第5部 5.5）。透明ボタン -->
@@ -1200,7 +1202,7 @@
 <script src="js/ai-player.js?v=0.6.10"></script>
 <script src="js/ai-uiops.js?v=0.6.10"></script>
 <script src="js/card-images.js?v=0.6.10"></script>
-<script src="js/version.js?v=0.6.10"></script>
+<script src="js/version.js?v=0.7.0"></script>
 <script src="js/events.js?v=0.6.10"></script>
 <script src="js/errors.js?v=0.6.10"></script>
 <script src="js/save-manager.js?v=0.6.10"></script>
@@ -1231,7 +1233,7 @@
 <script src="js/tutorial-cpu-driver.js?v=0.6.10"></script>
 <script src="js/screens.js?v=0.6.10"></script>
 <script src="js/cpu-driver.js?v=0.6.10"></script>
-<script src="js/preview.js?v=0.6.10"></script>
+<script src="js/preview.js?v=0.7.0"></script>
 <!-- 起動役。preview.js の関数を使うので、必ずそのあとに読みます -->
 <script src="js/tutorial-finish.js?v=0.6.10"></script>
 <script src="js/tutorial-runner.js?v=0.6.10"></script>
@@ -1243,6 +1245,8 @@
 <script src="js/v07-art.js?v=0.7.0"></script>
 <script src="js/v07-home.js?v=0.7.0"></script>
 <script src="js/v07-panels.js?v=0.7.0"></script>
+<script src="js/v07-screen.js?v=0.7.0"></script>
+<script src="js/v07-bridge.js?v=0.7.0"></script>
 <script src="js/v07-hub.js?v=0.7.0"></script>
 <script src="js/v07-shell.js?v=0.7.0"></script>
 <script>
